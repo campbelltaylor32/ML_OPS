@@ -4,8 +4,8 @@
     "RMSE": 4.702932077847228,
     "MAE": 3.2956983410604117,
     "R2": 0.8024588613222337,
-    "train_sec": 0.555,
-    "latency_ms": 2.526
+    "train_sec": 0.539,
+    "latency_ms": 2.448
   },
   {
     "regime": "flaml",
@@ -13,17 +13,17 @@
     "RMSE": 4.081719345515044,
     "MAE": 2.8863883018493652,
     "R2": 0.8511987924575806,
-    "train_sec": 64.335,
-    "latency_ms": 2.103
+    "train_sec": 65.054,
+    "latency_ms": 2.526
   },
   {
     "regime": "h2o",
-    "leader": "StackedEnsemble_AllModels_1_AutoML_1_20260528_94125",
+    "leader": "StackedEnsemble_AllModels_1_AutoML_1_20260528_95810",
     "RMSE": 4.077175,
     "MAE": 3.027122,
     "R2": 0.85153,
-    "train_sec": 3.36,
-    "latency_ms": 220.443
+    "train_sec": 3.97,
+    "latency_ms": 222.323
   },
   {
     "regime": "top5",
@@ -37,7 +37,7 @@
     "RMSE": 5.18202026750679,
     "MAE": 3.9083098888101677,
     "R2": 0.7601618009938328,
-    "train_sec": 0.876,
-    "latency_ms": 1.639
+    "train_sec": 1.062,
+    "latency_ms": 1.901
   }
 ]
