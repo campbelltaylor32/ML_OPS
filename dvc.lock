@@ -9,12 +9,12 @@ stages:
       size: 100291
     - path: src/lineage/contracts.py
       hash: md5
-      md5: dba599d52b900d6c3c29172f13523351
-      size: 2775
+      md5: 7c0c15f855959e6a584a0faf3ed5c52d
+      size: 2776
     - path: src/lineage/run_lineage.py
       hash: md5
-      md5: d4283d1217f8614130147e682a34e70b
-      size: 985
+      md5: fe20a64a0c9264c925350dc8b11ae1f0
+      size: 986
     outs:
     - path: data/intermediate
       hash: md5
@@ -41,8 +41,8 @@ stages:
       nfiles: 2
     - path: src/feature_store.py
       hash: md5
-      md5: fc0d5833424e9da4502fcf1ff5d22d39
-      size: 4667
+      md5: c4ee571d67cf7f83eb6ee2c502a0b807
+      size: 4636
     outs:
     - path: data/feature_store
       hash: md5
@@ -59,28 +59,28 @@ stages:
       nfiles: 6
     - path: src/automl_benchmark.py
       hash: md5
-      md5: ffd6a8838ca0ebb2e4388d9421e31706
-      size: 14520
+      md5: 3016469e57a482c25036a8d7a81533c5
+      size: 11180
     - path: src/mlflow_utils.py
       hash: md5
-      md5: bd9a4f1ae7d6ebab08f1f0d891c13ada
-      size: 3263
+      md5: 961c8dd23baee76fb5501a4f39907359
+      size: 3214
     params:
       params.yaml:
         automl.flaml_budget: 60
     outs:
     - path: models/best_model.pkl
       hash: md5
-      md5: b22b23f9c9157408af64e376e7382fc3
-      size: 391858
+      md5: 40dd069135e4300096db895117a15dbd
+      size: 676117
     - path: models/model_metadata.json
       hash: md5
-      md5: b8d8b18e8a605b73ec7da35d73f3ff8c
-      size: 1873
+      md5: 4a531703d3d2a286ea774bfd2023f12f
+      size: 1676
     - path: reports/automl
       hash: md5
-      md5: bd38f4adba0e222bcc9898baffeaa9f9.dir
-      size: 20193
+      md5: 8b739990c799a885e65ec30fec63ea3f.dir
+      size: 23256
       nfiles: 2
   monitoring_evidently:
     cmd: uv run python -m src.monitoring_evidently
@@ -95,17 +95,17 @@ stages:
       size: 15390
     - path: models/best_model.pkl
       hash: md5
-      md5: b22b23f9c9157408af64e376e7382fc3
-      size: 391858
+      md5: 40dd069135e4300096db895117a15dbd
+      size: 676117
     - path: src/monitoring_evidently.py
       hash: md5
-      md5: 3eafb0604ed03837eb9f4fe183d8b929
-      size: 3773
+      md5: 5dbb455e9c0bf04f48d7fd7c79c21fdb
+      size: 3752
     outs:
     - path: reports/monitoring/evidently_report.html
       hash: md5
-      md5: 8181bfb2d5d9fdbfb6edc9de0c791f09
-      size: 4209985
+      md5: c8db103b0553abb7cf7ce3e4fc7d69e1
+      size: 4209185
   preprocessing:
     cmd: uv run python -m src.preprocessing
     deps:
@@ -115,12 +115,12 @@ stages:
       size: 100291
     - path: src/config.py
       hash: md5
-      md5: 62709d177e10f2d4dfb327661a167baf
-      size: 5307
+      md5: 1c3a2f481fc50b484252491e798063f8
+      size: 5353
     - path: src/preprocessing.py
       hash: md5
-      md5: 41e5d109abde558db953a25ea843482e
-      size: 2166
+      md5: 3a4cd2dc5cdd7de29b0801438881dd34
+      size: 2167
     outs:
     - path: data/processed/test.csv
       hash: md5
@@ -140,16 +140,16 @@ stages:
       nfiles: 6
     - path: src/experiment.py
       hash: md5
-      md5: 43074b263c450db7962701c72df0aa09
-      size: 3374
+      md5: 3dab588a795c378c1be0c9f55f5d8924
+      size: 3323
     - path: src/mlflow_utils.py
       hash: md5
-      md5: bd9a4f1ae7d6ebab08f1f0d891c13ada
-      size: 3263
+      md5: 961c8dd23baee76fb5501a4f39907359
+      size: 3214
     outs:
     - path: reports/experiments
       hash: md5
-      md5: 23000f9c43515b0f40341640bffb4d32.dir
+      md5: 05c97adfdcf1ad9e73c8b76679414532.dir
       size: 1656
       nfiles: 1
   evaluate:
@@ -161,17 +161,17 @@ stages:
       size: 14579
     - path: models/best_model.pkl
       hash: md5
-      md5: b22b23f9c9157408af64e376e7382fc3
-      size: 391858
+      md5: 40dd069135e4300096db895117a15dbd
+      size: 676117
     - path: src/evaluate.py
       hash: md5
-      md5: 51b4fa5baeca7eafa8095d34cf28dbd7
-      size: 2579
+      md5: 94e92cd83f69dac067eb48c7787a6cdb
+      size: 2595
     outs:
     - path: reports/eval_original.json
       hash: md5
-      md5: f8aff8d241ce590b1a7783b17e825074
-      size: 146
+      md5: 54f50233b70e99b12bacad2a66f3d5df
+      size: 148
   make_modified_test:
     cmd: uv run python -m src.make_modified_test
     deps:
@@ -181,12 +181,12 @@ stages:
       size: 14579
     - path: src/config.py
       hash: md5
-      md5: 62709d177e10f2d4dfb327661a167baf
-      size: 5307
+      md5: 1c3a2f481fc50b484252491e798063f8
+      size: 5353
     - path: src/make_modified_test.py
       hash: md5
-      md5: e13ceae0568543486d8cd9336356d4ab
-      size: 1838
+      md5: 57d5dd43960b56caf2bdd5e323e02cb9
+      size: 1839
     outs:
     - path: data/processed/test_modified.csv
       hash: md5
@@ -205,21 +205,21 @@ stages:
       size: 15390
     - path: models/best_model.pkl
       hash: md5
-      md5: b22b23f9c9157408af64e376e7382fc3
-      size: 391858
+      md5: 40dd069135e4300096db895117a15dbd
+      size: 676117
     - path: src/batch_inference.py
       hash: md5
-      md5: e1f076a2c069344cbc031640fa86eb80
-      size: 3357
+      md5: de5ec6c57539214c14953b7770530c2a
+      size: 3426
     outs:
     - path: reports/metrics_comparison.json
       hash: md5
-      md5: 813c7e356559eab2bdd38190b11a4a8d
-      size: 489
+      md5: 5aed44b1968b414377f90e2932eee70c
+      size: 490
     - path: reports/predictions_comparison.csv
       hash: md5
-      md5: 493e9b602207b319e9b68d3f74f3e492
-      size: 6550
+      md5: a13c7d1a1a5411552e822eedbe54b52f
+      size: 6563
   monitoring:
     cmd: uv run python -m src.monitoring
     deps:
@@ -233,14 +233,35 @@ stages:
       size: 15390
     - path: models/best_model.pkl
       hash: md5
-      md5: b22b23f9c9157408af64e376e7382fc3
-      size: 391858
+      md5: 40dd069135e4300096db895117a15dbd
+      size: 676117
     - path: src/monitoring.py
       hash: md5
-      md5: 451c5992d64f0e4e2f599c78f3868aa6
-      size: 4762
+      md5: 4fb8816ed9e4c041a47d46a4629c628d
+      size: 4719
     outs:
     - path: reports/monitoring/drift_report.json
       hash: md5
-      md5: 7be814a961b988066e9dc240cd531d3f
+      md5: d2064b8dd4ae459fb7f5e564b88ddfdd
       size: 1757
+  eda:
+    cmd: uv run python -m src.eda
+    deps:
+    - path: data/raw/student_performance.csv
+      hash: md5
+      md5: 4a0ff1e630a0b2f942d559911dcb1aca
+      size: 100291
+    - path: src/config.py
+      hash: md5
+      md5: 1c3a2f481fc50b484252491e798063f8
+      size: 5353
+    - path: src/eda.py
+      hash: md5
+      md5: 704acd1bc5f61a06d23bdd15aeb04b8d
+      size: 9426
+    outs:
+    - path: reports/figures
+      hash: md5
+      md5: e107d69fe91c6f9a5052b2329cf155c0.dir
+      size: 472782
+      nfiles: 11
