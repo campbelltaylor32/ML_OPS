@@ -58,15 +58,18 @@ Format: `[ ]` open · `[~]` in-progress · `[x]` done
 - [x] Commit pending changes: dvc.yaml (9-stage pipeline), docker-compose.yml, .dvcignore, CLAUDE.md, README.md
 - [x] Confirm no dead scripts (all src/ modules referenced in dvc.yaml or documented commands)
 
-## Goal B — Docker E2E Verification
+## Goal B — Docker E2E Verification — 2026-05-28
 
-- [~] Run `docker compose run --rm pipeline` and confirm all 11 steps complete cleanly
-- [ ] Confirm artifacts written to host via bind-mount: `models/best_model.pkl`, `reports/monitoring/evidently_report.html`, `mlflow.db`
-- [ ] Confirm Evidently Cloud upload fires (token in `.env`) — check app.evidently.cloud
-- [ ] Run `docker compose up` — verify MLflow (5001), FastAPI (8000), Streamlit (8501) all healthy
-- [ ] Run `uv run python -m pytest -q` — all 17 guard tests pass
-- [ ] Run `bash scripts/smoke_apps.sh` — `/health` + `/predict` assertions pass
-- [ ] Run `dvc repro` and `dvc metrics show` — confirm RMSE/F1/PSI output
+- [x] Run `docker compose run --rm pipeline` — all 11 steps complete cleanly
+- [x] Confirm artifacts on host via bind-mount: `models/best_model.pkl` (660K), `reports/monitoring/evidently_report.html` (4.0M), `mlflow.db` (14M)
+- [x] Confirm Evidently Cloud upload — uploaded to project 019e6f0a-1dec-74b5-9736-1409c8d5b681
+- [x] Run `docker compose up` — MLflow (5001) 200 ✓, FastAPI (8000) healthy ✓, Streamlit (8501) 200 ✓
+- [x] Run `uv run python -m pytest -q` — 17/17 passed in 10.33s
+- [x] Run `bash scripts/smoke_apps.sh` — `/health` + `/predict` assertions pass ✓
+- [x] Fix Dockerfile: add `libgomp1` (LightGBM OpenMP runtime missing in slim image)
+- [x] Fix `dvc.yaml`: all stage cmds → `uv run python -m src.*` (bare `python` missed venv)
+- [x] Run `dvc repro` — 9 stages reproduced cleanly; `dvc.lock` updated
+- [x] Run `dvc metrics show` — RMSE=4.08, R²=0.85, risk_F1=0.85, PSI=3.05 (major drift on 4 features)
 
 ---
 
