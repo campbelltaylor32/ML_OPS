@@ -7,6 +7,9 @@ x-base: &base
   working_dir: /app
   environment:
     - PYTHONPATH=/app
+    - EVIDENTLY_API_TOKEN=${EVIDENTLY_API_TOKEN:-}
+    - EVIDENTLY_PROJECT_ID=${EVIDENTLY_PROJECT_ID:-}
+    - EVIDENTLY_CLOUD_URL=${EVIDENTLY_CLOUD_URL:-https://app.evidently.cloud}
 
 services:
   # ── Run once to build all pipeline artifacts ────────────────────────────────

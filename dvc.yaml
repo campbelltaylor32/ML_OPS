@@ -10,6 +10,16 @@ stages:
       - data/intermediate
       - data/marts
 
+  preprocessing:
+    cmd: python -m src.preprocessing
+    deps:
+      - data/raw/student_performance.csv
+      - src/preprocessing.py
+      - src/config.py
+    outs:
+      - data/processed/train.csv
+      - data/processed/test.csv
+
   feature_store:
     cmd: python -m src.feature_store
     deps:
@@ -17,6 +27,15 @@ stages:
       - src/feature_store.py
     outs:
       - data/feature_store
+
+  experiment:
+    cmd: python -m src.experiment
+    deps:
+      - data/feature_store
+      - src/experiment.py
+      - src/mlflow_utils.py
+    outs:
+      - reports/experiments
 
   automl_benchmark:
     cmd: python -m src.automl_benchmark --flaml-budget 60
@@ -32,9 +51,55 @@ stages:
       - params.yaml:
           - automl.flaml_budget
 
+  evaluate:
+    cmd: python -m src.evaluate
+    deps:
+      - data/processed/test.csv
+      - models/best_model.pkl
+      - src/evaluate.py
+    metrics:
+      - reports/eval_original.json:
+          cache: false
+
+  make_modified_test:
+    cmd: python -m src.make_modified_test
+    deps:
+      - data/processed/test.csv
+      - src/make_modified_test.py
+      - src/config.py
+    outs:
+      - data/processed/test_modified.csv
+
+  batch_inference:
+    cmd: python -m src.batch_inference
+    deps:
+      - data/processed/test.csv
+      - data/processed/test_modified.csv
+      - models/best_model.pkl
+      - src/batch_inference.py
+    outs:
+      - reports/predictions_comparison.csv
+    metrics:
+      - reports/metrics_comparison.json:
+          cache: false
+
+  monitoring:
+    cmd: python -m src.monitoring
+    deps:
+      - data/processed/test.csv
+      - data/processed/test_modified.csv
+      - models/best_model.pkl
+      - src/monitoring.py
+    metrics:
+      - reports/monitoring/drift_report.json:
+          cache: false
+
   monitoring_evidently:
     cmd: python -m src.monitoring_evidently
     deps:
-      - data/marts
+      - data/processed/test.csv
+      - data/processed/test_modified.csv
       - models/best_model.pkl
       - src/monitoring_evidently.py
+    outs:
+      - reports/monitoring/evidently_report.html
