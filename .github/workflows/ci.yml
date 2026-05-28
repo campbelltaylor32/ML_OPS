@@ -31,7 +31,7 @@ jobs:
       - name: Run reduced pipeline
         run: bash scripts/ci_pipeline.sh
 
-      - name: Run guard tests (G1–G4 + smoke)
+      - name: Run guard tests (G1-G4 + smoke)
         run: uv run python -m pytest -q
 
       - name: Smoke-test deployable apps
