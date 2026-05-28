@@ -28,7 +28,7 @@ evidently>=0.7
 codecarbon>=2.0
 
 # AutoML backends (H2O requires JVM; optional)
-# h2o>=3.44  # install manually: pip install h2o
+h2o>=3.44  # install manually: pip install h2o
 
 # Testing
 pytest>=7.4
