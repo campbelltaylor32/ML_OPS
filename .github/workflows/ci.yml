@@ -62,7 +62,7 @@ jobs:
         run: docker compose run --rm test
 
       - name: Smoke-test deployable apps
-        run: bash scripts/smoke_apps.sh
+        run: docker compose run --rm pipeline bash scripts/smoke_apps.sh
 
   publish:
     runs-on: ubuntu-latest
