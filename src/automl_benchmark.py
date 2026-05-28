@@ -107,6 +107,16 @@ def run_flaml(X_train, y_train, X_test, y_test, time_budget: int = 60) -> Dict[s
             )
             import joblib
             joblib.dump(final_pipe, config.MODEL_PATH)
+            meta = {
+                "registered_model": config.REGISTERED_MODEL_NAME,
+                "best_algorithm": automl.best_estimator,
+                "features": config.FEATURES,
+                "target": config.TARGET,
+                "risk_threshold": config.RISK_THRESHOLD,
+                "test_metrics": metrics,
+                "mlflow_run_id": run.info.run_id,
+            }
+            config.MODEL_META_PATH.write_text(json.dumps(meta, indent=2))
 
     return {"regime": "flaml", "best_algo": automl.best_estimator,
             **metrics, "train_sec": train_sec, "latency_ms": lat}
