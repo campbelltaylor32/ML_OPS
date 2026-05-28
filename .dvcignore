@@ -6,9 +6,6 @@
 mlflow.db
 mlruns/
 
-# EDA figures — many PNGs, not model artifacts
-reports/figures/
-
 # Lineage diagram
 reports/lineage/
 
