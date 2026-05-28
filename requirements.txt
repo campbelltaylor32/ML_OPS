@@ -23,6 +23,7 @@ plotly>=5.18
 
 # Monitoring
 evidently>=0.7
+python-dotenv>=1.0
 
 # Carbon emissions tracking (optional; core pipeline works without)
 codecarbon>=2.0

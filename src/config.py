@@ -47,8 +47,10 @@ AUTOML_DIR = REPORTS_DIR / "automl"
 PREDICTIONS_PATH = REPORTS_DIR / "predictions_comparison.csv"
 METRICS_PATH = REPORTS_DIR / "metrics_comparison.json"
 
-# Evidently Cloud (read from environment; absent = local-only mode)
+# Evidently Cloud (read from .env file then environment; absent = local-only mode)
 import os as _os
+from dotenv import load_dotenv as _load_dotenv
+_load_dotenv(ROOT / ".env")
 EVIDENTLY_API_TOKEN: str = _os.environ.get("EVIDENTLY_API_TOKEN", "")
 EVIDENTLY_CLOUD_URL: str = _os.environ.get("EVIDENTLY_CLOUD_URL", "https://app.evidently.cloud")
 EVIDENTLY_PROJECT_ID: str = _os.environ.get("EVIDENTLY_PROJECT_ID", "")
