@@ -1,6 +1,6 @@
 stages:
   lineage:
-    cmd: python -m src.lineage.run_lineage
+    cmd: uv run python -m src.lineage.run_lineage
     deps:
       - data/raw/student_performance.csv
       - src/lineage/run_lineage.py
@@ -11,7 +11,7 @@ stages:
       - data/marts
 
   preprocessing:
-    cmd: python -m src.preprocessing
+    cmd: uv run python -m src.preprocessing
     deps:
       - data/raw/student_performance.csv
       - src/preprocessing.py
@@ -21,7 +21,7 @@ stages:
       - data/processed/test.csv
 
   feature_store:
-    cmd: python -m src.feature_store
+    cmd: uv run python -m src.feature_store
     deps:
       - data/marts
       - src/feature_store.py
@@ -29,7 +29,7 @@ stages:
       - data/feature_store
 
   experiment:
-    cmd: python -m src.experiment
+    cmd: uv run python -m src.experiment
     deps:
       - data/feature_store
       - src/experiment.py
@@ -38,7 +38,7 @@ stages:
       - reports/experiments
 
   automl_benchmark:
-    cmd: python -m src.automl_benchmark --flaml-budget 60
+    cmd: uv run python -m src.automl_benchmark --flaml-budget 60
     deps:
       - data/feature_store
       - src/automl_benchmark.py
@@ -52,7 +52,7 @@ stages:
           - automl.flaml_budget
 
   evaluate:
-    cmd: python -m src.evaluate
+    cmd: uv run python -m src.evaluate
     deps:
       - data/processed/test.csv
       - models/best_model.pkl
@@ -62,7 +62,7 @@ stages:
           cache: false
 
   make_modified_test:
-    cmd: python -m src.make_modified_test
+    cmd: uv run python -m src.make_modified_test
     deps:
       - data/processed/test.csv
       - src/make_modified_test.py
@@ -71,7 +71,7 @@ stages:
       - data/processed/test_modified.csv
 
   batch_inference:
-    cmd: python -m src.batch_inference
+    cmd: uv run python -m src.batch_inference
     deps:
       - data/processed/test.csv
       - data/processed/test_modified.csv
@@ -84,7 +84,7 @@ stages:
           cache: false
 
   monitoring:
-    cmd: python -m src.monitoring
+    cmd: uv run python -m src.monitoring
     deps:
       - data/processed/test.csv
       - data/processed/test_modified.csv
@@ -95,7 +95,7 @@ stages:
           cache: false
 
   monitoring_evidently:
-    cmd: python -m src.monitoring_evidently
+    cmd: uv run python -m src.monitoring_evidently
     deps:
       - data/processed/test.csv
       - data/processed/test_modified.csv
