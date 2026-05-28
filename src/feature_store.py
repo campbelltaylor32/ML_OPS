@@ -7,14 +7,13 @@ Two versions:
 
 Run:  python -m src.feature_store
 """
+
 import hashlib
 import json
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
 
 from src import config
 
@@ -39,13 +38,22 @@ FEATURE_VERSIONS: Dict[str, List[str]] = {
 }
 
 CATEGORICAL_V2 = [
-    "Gender", "Major", "Living_Area", "Parent_Education",
-    "Scholarship_Status", "Part_Time_Job", "Internet_Access",
+    "Gender",
+    "Major",
+    "Living_Area",
+    "Parent_Education",
+    "Scholarship_Status",
+    "Part_Time_Job",
+    "Internet_Access",
 ]
 NUMERIC_V2 = [
-    "Age", "Study_Hours_Per_Day", "Sleep_Hours_Per_Day",
-    "Attendance_Rate", "Stress_Level",
-    "study_sleep_ratio", "effective_attendance",
+    "Age",
+    "Study_Hours_Per_Day",
+    "Sleep_Hours_Per_Day",
+    "Attendance_Rate",
+    "Stress_Level",
+    "study_sleep_ratio",
+    "effective_attendance",
 ]
 
 
@@ -54,16 +62,16 @@ def _add_derived(df: pd.DataFrame) -> pd.DataFrame:
     study = out["Study_Hours_Per_Day"].clip(lower=0)
     sleep = out["Sleep_Hours_Per_Day"].clip(lower=1e-3)
     out["study_sleep_ratio"] = (study / sleep).round(4)
-    out["effective_attendance"] = (
-        out["Attendance_Rate"] * (1 - out["Stress_Level"] / 10.0)
-    ).round(4)
+    out["effective_attendance"] = (out["Attendance_Rate"] * (1 - out["Stress_Level"] / 10.0)).round(
+        4
+    )
     return out
 
 
 def _hash_df(df: pd.DataFrame) -> str:
-    return hashlib.md5(
-        pd.util.hash_pandas_object(df, index=False).values.tobytes()
-    ).hexdigest()[:12]
+    return hashlib.md5(pd.util.hash_pandas_object(df, index=False).values.tobytes()).hexdigest()[
+        :12
+    ]
 
 
 class FeatureStore:
@@ -134,8 +142,9 @@ def build_feature_store() -> None:
     for version in FEATURE_VERSIONS:
         meta_path = fs.store_dir / version / "feature_defs.json"
         meta = json.loads(meta_path.read_text())
-        print(f"Feature store {version}: {meta['n_features']} features, "
-              f"{meta['n_train']} train rows")
+        print(
+            f"Feature store {version}: {meta['n_features']} features, {meta['n_train']} train rows"
+        )
 
 
 if __name__ == "__main__":

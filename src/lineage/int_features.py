@@ -3,6 +3,7 @@ Stage 2 — Staging → Intermediate
 Drops leakage + ID columns, adds 2 derived features.
 Writes data/intermediate/int_student_features.parquet
 """
+
 import pandas as pd
 
 from src import config
@@ -17,14 +18,14 @@ def run() -> pd.DataFrame:
     study = df["Study_Hours_Per_Day"].clip(lower=0)
     sleep = df["Sleep_Hours_Per_Day"].clip(lower=1e-3)
     df["study_sleep_ratio"] = (study / sleep).round(4)
-    df["effective_attendance"] = (
-        df["Attendance_Rate"] * (1 - df["Stress_Level"] / 10.0)
-    ).round(4)
+    df["effective_attendance"] = (df["Attendance_Rate"] * (1 - df["Stress_Level"] / 10.0)).round(4)
 
     config.INTERMEDIATE_DIR.mkdir(parents=True, exist_ok=True)
     df.to_parquet(config.INTERMEDIATE_PATH, index=False)
-    print(f"Intermediate: {len(df)} rows, {len(df.columns)} cols "
-          f"-> {config.INTERMEDIATE_PATH.relative_to(config.ROOT)}")
+    print(
+        f"Intermediate: {len(df)} rows, {len(df.columns)} cols "
+        f"-> {config.INTERMEDIATE_PATH.relative_to(config.ROOT)}"
+    )
     return df
 
 

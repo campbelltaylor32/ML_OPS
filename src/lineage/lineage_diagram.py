@@ -1,6 +1,7 @@
 """
 lineage_diagram.py  --  Emit a Mermaid DAG + render to PNG (if matplotlib available)
 """
+
 import textwrap
 from pathlib import Path
 
@@ -28,9 +29,10 @@ def run() -> Path:
 
     try:
         import matplotlib
+
         matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
         import matplotlib.patches as mpatches
+        import matplotlib.pyplot as plt
 
         nodes = [
             ("Raw CSV", 0.05, 0.5),
@@ -46,12 +48,28 @@ def run() -> Path:
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.axis("off")
-        colors = ["#AED6F1", "#A9DFBF", "#FAD7A0", "#F9E79F", "#D7BDE2", "#FADBD8", "#FDEBD0", "#D5F5E3"]
+        colors = [
+            "#AED6F1",
+            "#A9DFBF",
+            "#FAD7A0",
+            "#F9E79F",
+            "#D7BDE2",
+            "#FADBD8",
+            "#FDEBD0",
+            "#D5F5E3",
+        ]
         for (label, x, y), color in zip(nodes, colors):
-            ax.add_patch(mpatches.FancyBboxPatch(
-                (x - 0.05, y - 0.12), 0.10, 0.24,
-                boxstyle="round,pad=0.01", facecolor=color, edgecolor="gray", linewidth=0.8,
-            ))
+            ax.add_patch(
+                mpatches.FancyBboxPatch(
+                    (x - 0.05, y - 0.12),
+                    0.10,
+                    0.24,
+                    boxstyle="round,pad=0.01",
+                    facecolor=color,
+                    edgecolor="gray",
+                    linewidth=0.8,
+                )
+            )
             ax.text(x, y, label, ha="center", va="center", fontsize=7.5, wrap=True)
 
         edges = [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (4, 6), (5, 7), (6, 7)]
@@ -59,7 +77,9 @@ def run() -> Path:
             x0, y0 = nodes[i][1], nodes[i][2]
             x1, y1 = nodes[j][1], nodes[j][2]
             ax.annotate(
-                "", xy=(x1 - 0.05, y1), xytext=(x0 + 0.05, y0),
+                "",
+                xy=(x1 - 0.05, y1),
+                xytext=(x0 + 0.05, y0),
                 arrowprops=dict(arrowstyle="->", color="gray", lw=1.0),
             )
 

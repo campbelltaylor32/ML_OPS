@@ -8,18 +8,19 @@ includes preprocessing, so callers send RAW student feature values.
 Run:  uvicorn app.inference_api:app --reload --port 8000
 Docs: http://localhost:8000/docs   (interactive Swagger UI -- great for the demo)
 """
+
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import json
-from typing import List, Optional
+from typing import List
 
 import joblib
 import pandas as pd
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from src import config
 
@@ -56,8 +57,11 @@ class PredictionOut(BaseModel):
 @app.get("/health")
 def health():
     """Liveness probe + which model version is serving."""
-    return {"status": "ok", "model": _meta["best_algorithm"],
-            "registered_model": _meta["registered_model"]}
+    return {
+        "status": "ok",
+        "model": _meta["best_algorithm"],
+        "registered_model": _meta["registered_model"],
+    }
 
 
 @app.post("/predict", response_model=PredictionOut)
@@ -65,9 +69,11 @@ def predict(student: Student):
     """Score a single student and flag academic risk."""
     row = pd.DataFrame([student.model_dump()])[config.FEATURES]
     score = float(_model.predict(row)[0])
-    return PredictionOut(predicted_score=round(score, 2),
-                         at_risk=score < config.RISK_THRESHOLD,
-                         risk_threshold=config.RISK_THRESHOLD)
+    return PredictionOut(
+        predicted_score=round(score, 2),
+        at_risk=score < config.RISK_THRESHOLD,
+        risk_threshold=config.RISK_THRESHOLD,
+    )
 
 
 @app.post("/predict_batch")
@@ -75,5 +81,7 @@ def predict_batch(students: List[Student]):
     """Score many students at once (used for batch monitoring)."""
     rows = pd.DataFrame([s.model_dump() for s in students])[config.FEATURES]
     scores = _model.predict(rows)
-    return [{"predicted_score": round(float(s), 2),
-             "at_risk": bool(s < config.RISK_THRESHOLD)} for s in scores]
+    return [
+        {"predicted_score": round(float(s), 2), "at_risk": bool(s < config.RISK_THRESHOLD)}
+        for s in scores
+    ]

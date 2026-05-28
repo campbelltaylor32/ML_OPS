@@ -25,17 +25,22 @@ Never spawn an Explore agent or run a grep/Read loop when 1–2 codegraph calls 
 # Environment setup (uv — installs all deps from uv.lock)
 uv sync                           # create/update .venv
 
-# Full enhanced pipeline (11 steps: lineage → features → experiments → automl → evaluate → monitor)
-bash run_all.sh
+# ── Docker (canonical path) ──────────────────────────────────────────────────
+docker compose run --rm pipeline    # run dvc repro inside the image; artifacts land on host
+docker compose run --rm test        # run pytest inside the image against pipeline artifacts
+docker compose up                   # start mlflow (5001) + api (8000) + dashboard (8501)
+bash scripts/verify_docker.sh       # all three steps above in one command
 
-# Individual pillars
+# ── Local fallback (no Docker) ───────────────────────────────────────────────
+bash run_all.sh                     # mirrors dvc.yaml stage order; use when DVC unavailable
+
+# Individual pillars (local, for dev iteration)
+uv run python -m src.eda                               # EDA charts -> reports/figures/
 uv run python -m src.lineage.run_lineage               # Lineage: Raw→Staging→Intermediate→Marts + diagram
+uv run python -m src.preprocessing                     # CSV-compat train/test split -> data/processed/
 uv run python -m src.feature_store                     # Feature Store: materialise v1 + v2
 uv run python -m src.experiment                        # Experiment grid: feat×hparams + CodeCarbon
 uv run python -m src.automl_benchmark --flaml-budget 60 # AutoML: Baseline/FLAML + latency + top-5
-uv run python -m src.eda                               # EDA charts -> reports/figures/
-uv run python -m src.preprocessing                     # CSV-compat train/test split -> data/processed/
-uv run python -m src.train_automl --time-budget 60     # Standalone FLAML AutoML + MLflow tracking
 uv run python -m src.evaluate                          # Metrics on original test set
 uv run python -m src.make_modified_test                # Build "academic stress" test set
 uv run python -m src.batch_inference                   # Predict both sets + compare
@@ -45,15 +50,15 @@ uv run python -m src.monitoring_evidently              # Evidently DataDrift+Dat
 # Tests — use uv run (resolves .venv correctly; bare pytest will ImportError on src)
 uv run python -m pytest -q
 
-# Serving — local
+# Lint
+uv run ruff check .
+uv run ruff format --check .
+
+# Serving — local fallback
 uv run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5001   # http://localhost:5001
 uv run streamlit run app/dashboard.py                       # http://localhost:8501
 uv run uvicorn app.inference_api:app --port 8000            # http://localhost:8000/docs
 bash serve_demo.sh                                          # all three at once
-
-# Serving — Docker
-docker compose run --rm pipeline    # build all pipeline artifacts (first time)
-docker compose up                   # start mlflow + api + dashboard
 ```
 
 ## Architecture
@@ -91,13 +96,13 @@ and registers it. `app/` feeds raw rows — preprocessing is baked into the pipe
 - **No leakage columns:** `Math_Score`, `Science_Score`, `Language_Score`, `History_Score`, `Grade` must never reach the model. Validated by `contracts.validate_marts()`.
 - **MLflow tracking URI must be SQLite** (`sqlite:///mlflow.db`) — required for the Model Registry locally.
 - **`models/best_model.pkl` is the serving artifact** — apps load this directly; do not depend on MLflow being live.
-- **`data/processed/`, `data/staging/`, `data/intermediate/`, `data/marts/`, `data/feature_store/`, `reports/` are all generated** — do not commit them. Run `bash run_all.sh` to regenerate.
+- **`data/processed/`, `data/staging/`, `data/intermediate/`, `data/marts/`, `data/feature_store/`, `reports/` are all generated** — do not commit them. Run `docker compose run --rm pipeline` (or `bash run_all.sh` locally) to regenerate.
 - **Dependency pinning — two-file strategy:** `requirements.txt` holds pinned direct deps (`==`); `requirements.lock` is the full `pip freeze` for exact transitive reproduction. Always install from `requirements.lock` for a reproducible env. After any version bump: update `requirements.txt`, run `bash run_all.sh`, then `pip freeze > requirements.lock`. Never use `>=` ranges in `requirements.txt` — the evidently 0.6/0.7 API breakage in `monitoring_evidently.py` is the canonical example of why.
 - **Evidently Cloud credentials live in `.env`** — copy `.env.example` → `.env` and fill in `EVIDENTLY_API_TOKEN` + `EVIDENTLY_PROJECT_ID`. `src/config.py` auto-loads it via `python-dotenv`. `.env` is gitignored; never commit it. Local HTML is always written regardless of token.
 
 ## Data & Versioning (DVC)
 
-**DVC is initialized** (`dvc init` already run). The pipeline is defined in `dvc.yaml` with four stages: `lineage → feature_store → automl_benchmark → monitoring_evidently`.
+**DVC is initialized** (`dvc init` already run). The pipeline is defined in `dvc.yaml` with 10 stages: `eda → lineage → preprocessing → feature_store → experiment → automl_benchmark → evaluate → make_modified_test → batch_inference → monitoring → monitoring_evidently`. `dvc repro` is the canonical pipeline runner; `docker compose run --rm pipeline` executes it inside the image.
 
 **DVC commands:**
 ```bash
@@ -119,7 +124,6 @@ and registers it. `app/` feeds raw rows — preprocessing is baked into the pipe
 
 **What DVC does NOT track (handled by MLflow or gitignored):**
 - `mlflow.db`, `mlruns/` — MLflow owns these
-- `reports/monitoring/`, `reports/figures/` — generated HTML/PNG outputs; gitignored
 
 ## Task & Planning Protocol
 

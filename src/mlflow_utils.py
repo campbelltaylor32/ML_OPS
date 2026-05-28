@@ -4,14 +4,12 @@ mlflow_utils.py  --  Thin MLflow + CodeCarbon wrappers
 Centralises boilerplate so every tracking site stays consistent.
 All wrappers delegate to the real MLflow/CodeCarbon APIs; nothing is cached.
 """
+
 import contextlib
 import json
 import logging
 import tempfile
-import time
-from pathlib import Path
 from typing import Any, Dict, Generator, Optional
-
 
 import mlflow
 import mlflow.sklearn
@@ -24,6 +22,7 @@ def _get_dvc_hash(path: str) -> str:
     if not lock.exists():
         return "unknown"
     import yaml
+
     data = yaml.safe_load(lock.read_text()) or {}
     for stage in (data.get("stages") or {}).values():
         for out in stage.get("outs", []):
@@ -53,9 +52,7 @@ def log_feature_set(meta: Dict[str, Any]) -> None:
     mlflow.set_tag("feature_version", meta.get("version", "unknown"))
     mlflow.log_param("feature_count", meta.get("n_features", 0))
     mlflow.log_param("feature_version", meta.get("version", "unknown"))
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".json", delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump(meta, f, indent=2)
         tmp = f.name
     mlflow.log_artifact(tmp, artifact_path="feature_meta")
@@ -70,6 +67,7 @@ def track_emissions(project_name: str = "student_performance") -> Generator[None
     """
     try:
         from codecarbon import EmissionsTracker
+
         # codecarbon's external/logger.py resets the logger to INFO on import;
         # override it here, after the import, so the "Multiple instances" warning
         # (fired at __init__ line 310, before set_logger_level at line 390) is suppressed.

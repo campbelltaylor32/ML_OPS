@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# run_all.sh -- run the entire enhanced MLOps pipeline end to end.
-# Pillar order: Data Lineage -> Feature Store -> Experiments -> AutoML -> Evaluate -> Monitor
+# run_all.sh -- local fallback pipeline runner (mirrors dvc.yaml stage order).
+# Canonical path: docker compose run --rm pipeline  (runs dvc repro inside the container)
+# Use this script only when running outside Docker without DVC.
 set -e
 
 echo "[1/11] EDA .............................."; uv run python -m src.eda

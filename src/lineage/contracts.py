@@ -4,6 +4,7 @@ contracts.py  --  Checking Guards between lineage stages
 Each guard raises ValueError on contract violation so the pipeline halts rather
 than silently propagating bad data.
 """
+
 from pathlib import Path
 from typing import List
 

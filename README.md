@@ -1,6 +1,7 @@
 # Student Performance Risk Monitoring System
 
 [![CI](https://github.com/campbelltaylor32/ML_OPS/actions/workflows/ci.yml/badge.svg)](https://github.com/campbelltaylor32/ML_OPS/actions/workflows/ci.yml)
+[![Publish](https://github.com/campbelltaylor32/ML_OPS/actions/workflows/publish.yml/badge.svg)](https://github.com/campbelltaylor32/ML_OPS/actions/workflows/publish.yml)
 
 An end-to-end **Machine Learning Operations (MLOps)** project that predicts a
 student's **Performance Score** from demographic, background, and behavioural
@@ -18,8 +19,8 @@ The system demonstrates the **full MLOps lifecycle** across four pillars:
 |---|---|
 | **Andrew Castillo** | Raw data acquisition & profiling; EDA (`src/eda.py`, `reports/figures/`); data lineage pipeline (`src/lineage/`); train/test split (`src/preprocessing.py`) |
 | **Campbell Taylor** | Feature engineering (`src/feature_store.py` — v1/v2 feature sets, derived features `study_sleep_ratio`, `effective_attendance`); experiment tracking grid (`src/experiment.py`); MLflow utilities (`src/mlflow_utils.py`) |
-| **Cicily Matthew** | AutoML benchmarking (`src/automl_benchmark.py` — FLAML, H2O, baseline, top-5 regimes); model evaluation (`src/evaluate.py`); model selection & MLflow model registry |
-| **Sagana Ondande** | MLOps architecture design; data versioning (DVC — `dvc.yaml`, `params.yaml`, `dvc.lock`); CI/CD (GitHub Actions `ci.yml`, `scripts/ci_pipeline.sh`, `scripts/smoke_apps.sh`); Docker Compose deployment (`docker-compose.yml`); FastAPI inference API (`app/inference_api.py`); Streamlit monitoring dashboard (`app/dashboard.py`); drift monitoring (`src/monitoring.py`, `src/monitoring_evidently.py`); demo infrastructure (`serve_demo.sh`, `app/serve_index.html`); documentation (README, CLAUDE.md) |
+| **Cicily Matthew** | AutoML benchmarking (`src/automl_benchmark.py` — FLAML, baseline, top-5 regimes); model evaluation (`src/evaluate.py`); model selection & MLflow model registry |
+| **Sagana Ondande** | MLOps architecture design; data versioning (DVC — `dvc.yaml`, `params.yaml`, `dvc.lock`); CI/CD (GitHub Actions `ci.yml`, `publish.yml`, `drift.yml`, `scripts/smoke_apps.sh`, `scripts/verify_docker.sh`); Docker Compose deployment (`docker-compose.yml`); FastAPI inference API (`app/inference_api.py`); Streamlit monitoring dashboard (`app/dashboard.py`); drift monitoring (`src/monitoring.py`, `src/monitoring_evidently.py`); demo infrastructure (`serve_demo.sh`, `app/serve_index.html`); documentation (README, CLAUDE.md) |
 
 ---
 
@@ -61,9 +62,10 @@ No `uv sync` needed for Docker — the container builds its own environment. Onl
 docker compose run --rm pipeline
 ```
 
-Runs all 11 steps inside the container: EDA → lineage → preprocessing → feature store →
-experiment grid → AutoML benchmark → evaluate → modified test set → batch inference →
-PSI monitoring → Evidently drift report.
+Runs `dvc repro` inside the container — all 10 stages in dependency order: EDA → lineage →
+preprocessing → feature store → experiment grid → AutoML benchmark → evaluate → modified
+test set → batch inference → PSI monitoring → Evidently drift report. Skips unchanged stages
+automatically.
 
 Artifacts are written directly to the host via bind-mount:
 `models/best_model.pkl`, `reports/`, `data/marts/`, `data/feature_store/`, `data/processed/`, `mlflow.db`.
@@ -71,13 +73,18 @@ Artifacts are written directly to the host via bind-mount:
 If `EVIDENTLY_API_TOKEN` is set in `.env`, the Evidently drift report is uploaded to
 **app.evidently.cloud** automatically at step 11.
 
-### Step 3 — Verify guard tests pass
+### Step 3 — Verify guard tests pass (Docker)
 
 ```bash
-uv run python -m pytest -q
+docker compose run --rm test
 ```
 
-All 17 guard tests (G1–G4) must pass. These run against the artifacts written to host in Step 2.
+Runs all 17 guard tests (G1–G4) inside the same image, against the artifacts written to host in Step 2.
+Or run all three steps (build → test → smoke) with one command:
+
+```bash
+bash scripts/verify_docker.sh
+```
 
 ### Step 4 — Launch all services (Docker)
 
@@ -114,7 +121,7 @@ Covers all 10 project rubric criteria.
 
 ```bash
 uv sync
-bash run_all.sh               # runs all 11 steps
+bash run_all.sh               # mirrors dvc.yaml order (use when running without Docker)
 uv run python -m pytest -q    # guard tests
 bash serve_demo.sh            # starts MLflow + FastAPI + Streamlit
 ```
@@ -180,13 +187,12 @@ Lineage DAG diagram: `reports/lineage/lineage_dag.{md,png}`
 **Checking Guard G2:** feature store `feature_defs.json` must exist for both versions before AutoML.
 
 ### Pillar 3 — AutoML Optimization (`src/automl_benchmark.py`)
-Benchmarks four regimes on identical splits, all logged to MLflow with latency:
+Benchmarks three regimes on identical splits, all logged to MLflow with latency:
 
 | Regime | Description |
 |---|---|
 | `baseline` | Default LightGBM, no tuning |
 | `flaml` | FLAML AutoML (lgbm / xgboost / rf / extra_tree) |
-| `h2o` | H2O AutoML (JVM-guarded; skips cleanly if unavailable) |
 | `top5` | Top-5 features by importance, LightGBM retrained |
 
 Results + accuracy-vs-latency scatter: `reports/automl/benchmark.json` + `accuracy_vs_latency.png`
@@ -227,10 +233,9 @@ student-performance-mlops/
 │   ├── mlflow_utils.py                        # start_tracked_run, log_feature_set, track_emissions
 │   ├── feature_store.py                       # FeatureStore v1/v2 materialisation
 │   ├── experiment.py                          # Feature grid × hyperparams + CodeCarbon
-│   ├── automl_benchmark.py                    # Baseline vs FLAML vs H2O + latency + top-5
+│   ├── automl_benchmark.py                    # Baseline vs FLAML + latency + top-5
 │   ├── eda.py                                 # EDA charts
 │   ├── preprocessing.py                       # CSV-compat train/test split
-│   ├── train_automl.py                        # Standalone FLAML AutoML + MLflow
 │   ├── evaluate.py                            # Metrics on original test set
 │   ├── make_modified_test.py                  # "Academic stress" modified test set
 │   ├── batch_inference.py                     # Predict both sets + compare
@@ -262,7 +267,6 @@ student-performance-mlops/
 
 ```bash
 uv sync              # creates .venv at project root; installs all deps from uv.lock
-uv sync --extra h2o  # also install H2O (requires JVM 8+)
 
 # Evidently Cloud credentials (optional — local HTML report always works without them)
 cp .env.example .env          # then open .env and fill in your token + project ID
@@ -315,8 +319,11 @@ uv run python -m pytest -q
 Requires Docker ≥ 24 + Docker Compose v2.
 
 ```bash
-# Build all pipeline artifacts (run once; bind-mount writes artifacts to host)
+# Build all pipeline artifacts via dvc repro (run once; artifacts land on host via bind-mount)
 docker compose run --rm pipeline
+
+# Run guard tests inside the image
+docker compose run --rm test
 
 # Start all three serving services
 docker compose up
@@ -327,11 +334,23 @@ docker compose up mlflow       # MLflow UI only (http://localhost:5001)
 docker compose up dashboard    # Streamlit only (http://localhost:8501)
 ```
 
-The `pipeline` service (profile: `pipeline`) is excluded from `docker compose up` so it never auto-starts. Run it once before launching the serving stack.
+The `pipeline` and `test` services (profiles: `pipeline`, `test`) are excluded from `docker compose up` so they never auto-start. Run `pipeline` once before launching the serving stack; run `test` to verify artifact integrity.
+
+One-command full verify loop:
+```bash
+bash scripts/verify_docker.sh   # pipeline → test → smoke
+```
 
 Health endpoint verified by the compose healthcheck:
 ```
 GET http://localhost:8000/health → {"status":"ok","model":"xgboost",...}
+```
+
+### Pull the published image (optional)
+
+The image is published to GitHub Container Registry on every push to `main`:
+```bash
+docker pull ghcr.io/campbelltaylor32/ml_ops:latest
 ```
 
 ## 8b. Local serving (fallback)
@@ -364,6 +383,20 @@ bash serve_demo.sh
 `src/config.py` loads `.env` automatically via `python-dotenv` — no `export` needed.
 Without a token, the script writes `reports/monitoring/evidently_report.html` locally and skips the upload.
 
+## 11. CI/CD (GitHub Actions)
+
+Three workflows run automatically:
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `ci.yml` | push / PR → `main` | **lint** (ruff check + format) then **build-test**: builds Docker image, runs `dvc repro` + pytest + smoke tests _inside the image_ |
+| `publish.yml` | push to `main` / version tags | Builds and pushes image to `ghcr.io/campbelltaylor32/ml_ops` with `latest`, `sha-*`, and semver tags |
+| `drift.yml` | weekly cron (Mon 06:00 UTC) + manual dispatch | Runs monitoring stages inside the published image; uploads `evidently_report.html` + `drift_report.json` as workflow artifacts; uploads to Evidently Cloud if `EVIDENTLY_API_TOKEN` secret is set |
+
+Required repository secrets for full functionality:
+- `EVIDENTLY_API_TOKEN` — enables Evidently Cloud upload from `drift.yml`
+- `EVIDENTLY_PROJECT_ID` — project UUID (optional; first workspace project used if blank)
+
 ---
 
 ## Results (from a 60-second FLAML AutoML run)
@@ -374,7 +407,6 @@ Without a token, the script writes `reports/monitoring/evidently_report.html` lo
 | Baseline LightGBM | ~4.70 | ~0.80 | ~1 ms |
 | FLAML AutoML | ~4.08 | ~0.85 | ~2 ms |
 | Top-5 Features | ~5.18 | ~0.76 | ~0.5 ms |
-| H2O AutoML | skipped (JVM not available) | — | — |
 
 ### Drift Detection (original vs. "academic stress" modified set)
 | Metric | Original | Modified | Change |

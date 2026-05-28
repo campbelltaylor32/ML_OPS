@@ -1,4 +1,4 @@
-name: CI — build, test, smoke
+name: CI — lint, build, test
 
 on:
   push:
@@ -7,43 +7,58 @@ on:
     branches: [main]
 
 jobs:
-  build-and-verify:
+  lint:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
           enable-cache: true
           cache-dependency-glob: "uv.lock"
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install dependencies
         run: uv sync --frozen
 
-      - name: Run reduced pipeline
-        run: bash scripts/ci_pipeline.sh
+      - name: Lint (ruff)
+        run: uv run ruff check .
 
-      - name: Run guard tests (G1-G4 + smoke)
-        run: uv run python -m pytest -q
+      - name: Format check (ruff)
+        run: uv run ruff format --check .
 
-      - name: Build Docker image
-        run: docker build -t ml-ops-pipeline:ci .
+  build-test:
+    runs-on: ubuntu-latest
+    needs: lint
+    permissions:
+      contents: read
+      packages: read
 
-      - name: Smoke-test Docker runtime (dep check)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (with GHA layer cache)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: ml-ops-pipeline:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run pipeline inside image (dvc repro)
         run: |
-          docker run --rm ml-ops-pipeline:ci python -c "
-          from src import config
-          import flaml, evidently, mlflow, joblib, pandas, sklearn
-          print('Docker deps OK')
-          "
+          docker compose run --rm \
+            -e EVIDENTLY_API_TOKEN="" \
+            -e EVIDENTLY_PROJECT_ID="" \
+            pipeline
+
+      - name: Run guard tests inside image
+        run: docker compose run --rm test
 
       - name: Smoke-test deployable apps
         run: bash scripts/smoke_apps.sh

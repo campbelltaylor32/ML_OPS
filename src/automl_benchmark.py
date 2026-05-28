@@ -8,29 +8,35 @@ Also produces a top-5-feature variant via LightGBM importances.
 
 Run:  python -m src.automl_benchmark
 """
+
 import json
 import time
 from typing import Any, Dict, List
 
 import lightgbm as lgb
+import mlflow
+import mlflow.sklearn
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
-import mlflow
-import mlflow.sklearn
-
 from src import config
 from src.evaluate import regression_metrics
 from src.feature_store import FeatureStore
 from src.lineage.contracts import validate_feature_store
-from src.mlflow_utils import start_tracked_run, track_emissions, _get_dvc_hash
-from src.train_automl import build_preprocessor
+from src.mlflow_utils import _get_dvc_hash, start_tracked_run, track_emissions
 
 LATENCY_ROWS = 200
 LATENCY_REPEATS = 30
+
+
+def build_preprocessor() -> ColumnTransformer:
+    return ColumnTransformer(
+        transformers=[("cat", OneHotEncoder(handle_unknown="ignore"), config.CATEGORICAL_FEATURES)],
+        remainder="passthrough",
+    )
 
 
 def _measure_latency(pipeline, X_sample: pd.DataFrame) -> float:
@@ -65,8 +71,13 @@ def run_baseline(X_train, y_train, X_test, y_test) -> Dict[str, Any]:
             lat = _measure_latency(pipe, X_test.head(LATENCY_ROWS))
             mlflow.log_params({"n_estimators": 100, "regime": "baseline"})
             mlflow.log_metrics({**metrics, "train_sec": train_sec, "latency_ms": lat})
-    return {"regime": "baseline", **metrics, "train_sec": train_sec,
-            "latency_ms": lat, "pipeline": pipe}
+    return {
+        "regime": "baseline",
+        **metrics,
+        "train_sec": train_sec,
+        "latency_ms": lat,
+        "pipeline": pipe,
+    }
 
 
 def run_flaml(X_train, y_train, X_test, y_test, time_budget: int = 60) -> Dict[str, Any]:
@@ -80,16 +91,18 @@ def run_flaml(X_train, y_train, X_test, y_test, time_budget: int = 60) -> Dict[s
         with track_emissions("automl_flaml"):
             t0 = time.perf_counter()
             automl.fit(
-                X_train=X_tr, y_train=y_train.values,
-                task="regression", metric="rmse",
+                X_train=X_tr,
+                y_train=y_train.values,
+                task="regression",
+                metric="rmse",
                 time_budget=time_budget,
                 estimator_list=["lgbm", "xgboost", "rf", "extra_tree"],
-                seed=config.SEED, verbose=0,
+                seed=config.SEED,
+                verbose=0,
             )
             train_sec = round(time.perf_counter() - t0, 3)
 
-            final_pipe = Pipeline([("preprocessor", pre),
-                                    ("model", automl.model.estimator)])
+            final_pipe = Pipeline([("preprocessor", pre), ("model", automl.model.estimator)])
             preds = final_pipe.predict(X_test)
             metrics = regression_metrics(y_test, preds)
             lat = _measure_latency(final_pipe, X_test.head(LATENCY_ROWS))
@@ -104,10 +117,15 @@ def run_flaml(X_train, y_train, X_test, y_test, time_budget: int = 60) -> Dict[s
             )
             run_id = run.info.run_id
 
-    return {"regime": "flaml", "best_algo": automl.best_estimator,
-            **metrics, "train_sec": train_sec, "latency_ms": lat,
-            "pipeline": final_pipe, "mlflow_run_id": run_id}
-
+    return {
+        "regime": "flaml",
+        "best_algo": automl.best_estimator,
+        **metrics,
+        "train_sec": train_sec,
+        "latency_ms": lat,
+        "pipeline": final_pipe,
+        "mlflow_run_id": run_id,
+    }
 
 
 def run_top5_variant(X_train, y_train, X_test, y_test) -> Dict[str, Any]:
@@ -122,7 +140,7 @@ def run_top5_variant(X_train, y_train, X_test, y_test) -> Dict[str, Any]:
 
     ohe_cats = pre.named_transformers_["cat"].get_feature_names_out(config.CATEGORICAL_FEATURES)
     all_feature_names = list(ohe_cats) + config.NUMERIC_FEATURES
-    imp_series = pd.Series(raw_imp[:len(all_feature_names)], index=all_feature_names)
+    imp_series = pd.Series(raw_imp[: len(all_feature_names)], index=all_feature_names)
 
     orig_imp = {}
     for feat in config.FEATURES:
@@ -130,7 +148,6 @@ def run_top5_variant(X_train, y_train, X_test, y_test) -> Dict[str, Any]:
         orig_imp[feat] = float(imp_series[cols].sum()) if cols else 0.0
 
     top5 = sorted(orig_imp, key=orig_imp.get, reverse=True)[:5]
-    top5_num = [f for f in top5 if f in config.NUMERIC_FEATURES]
     top5_cat = [f for f in top5 if f in config.CATEGORICAL_FEATURES]
 
     top5_pipe = _ohe_pipeline(
@@ -148,8 +165,13 @@ def run_top5_variant(X_train, y_train, X_test, y_test) -> Dict[str, Any]:
             mlflow.log_params({"top5_features": ",".join(top5), "n_features": 5})
             mlflow.log_metrics({**metrics, "train_sec": train_sec, "latency_ms": lat})
 
-    return {"regime": "top5", "top5_features": top5,
-            **metrics, "train_sec": train_sec, "latency_ms": lat}
+    return {
+        "regime": "top5",
+        "top5_features": top5,
+        **metrics,
+        "train_sec": train_sec,
+        "latency_ms": lat,
+    }
 
 
 def main(flaml_budget: int = 60) -> None:
@@ -171,8 +193,7 @@ def main(flaml_budget: int = 60) -> None:
     top5_res = run_top5_variant(X_train, y_train, X_test, y_test)
 
     # ── Model selection ───────────────────────────────────────────────────────
-    candidates = [r for r in [baseline_res, flaml_res]
-                  if "RMSE" in r and "pipeline" in r]
+    candidates = [r for r in [baseline_res, flaml_res] if "RMSE" in r and "pipeline" in r]
     best_sklearn = min(candidates, key=lambda r: r["RMSE"])
 
     all_scored = [r for r in [baseline_res, flaml_res, top5_res] if "RMSE" in r]
@@ -181,7 +202,7 @@ def main(flaml_budget: int = 60) -> None:
     deployed_regime = best_sklearn["regime"]
     best_overall_regime = best_overall["regime"]
 
-    print(f"\n=== Model Selection ===")
+    print("\n=== Model Selection ===")
     print(f"  Best model  : {deployed_regime}  (RMSE={best_sklearn['RMSE']:.4f})")
     print(f"  Best overall: {best_overall_regime}  (RMSE={best_overall['RMSE']:.4f})")
 
@@ -190,14 +211,18 @@ def main(flaml_budget: int = 60) -> None:
 
     # Register best sklearn model to MLflow
     with mlflow.start_run(run_name="model_selection") as sel_run:
-        mlflow.log_params({
-            "deployed_regime": deployed_regime,
-            "best_overall_regime": best_overall_regime,
-        })
-        mlflow.log_metrics({
-            "deployed_rmse": best_sklearn["RMSE"],
-            "best_overall_rmse": best_overall["RMSE"],
-        })
+        mlflow.log_params(
+            {
+                "deployed_regime": deployed_regime,
+                "best_overall_regime": best_overall_regime,
+            }
+        )
+        mlflow.log_metrics(
+            {
+                "deployed_rmse": best_sklearn["RMSE"],
+                "best_overall_rmse": best_overall["RMSE"],
+            }
+        )
         mlflow.sklearn.log_model(
             sk_model=best_sklearn["pipeline"],
             name="model",
@@ -207,14 +232,15 @@ def main(flaml_budget: int = 60) -> None:
 
     meta = {
         "registered_model": config.REGISTERED_MODEL_NAME,
-        "best_algorithm": deployed_regime,          # serving key read by inference_api.py
+        "best_algorithm": deployed_regime,  # serving key read by inference_api.py
         "deployed_regime": deployed_regime,
         "best_overall_regime": best_overall_regime,
         "features": config.FEATURES,
         "target": config.TARGET,
         "risk_threshold": config.RISK_THRESHOLD,
-        "deployed_metrics": {k: v for k, v in best_sklearn.items()
-                             if k not in ("pipeline", "regime")},
+        "deployed_metrics": {
+            k: v for k, v in best_sklearn.items() if k not in ("pipeline", "regime")
+        },
         "all_regimes": [
             {k: v for k, v in r.items() if k not in ("pipeline",)}
             for r in [baseline_res, flaml_res, top5_res]
@@ -224,8 +250,10 @@ def main(flaml_budget: int = 60) -> None:
     config.MODEL_META_PATH.write_text(json.dumps(meta, indent=2))
 
     # ── Benchmark report ──────────────────────────────────────────────────────
-    results = [{k: v for k, v in r.items() if k not in ("pipeline",)}
-               for r in [baseline_res, flaml_res, top5_res]]
+    results = [
+        {k: v for k, v in r.items() if k not in ("pipeline",)}
+        for r in [baseline_res, flaml_res, top5_res]
+    ]
 
     config.AUTOML_DIR.mkdir(parents=True, exist_ok=True)
     out = config.AUTOML_DIR / "benchmark.json"
@@ -234,8 +262,10 @@ def main(flaml_budget: int = 60) -> None:
 
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
+
         scored = [r for r in results if "RMSE" in r and "latency_ms" in r]
         labels = [r["regime"] for r in scored]
         rmses = [r["RMSE"] for r in scored]
@@ -244,20 +274,25 @@ def main(flaml_budget: int = 60) -> None:
         ax.scatter(lats, rmses, s=80, zorder=5)
         for label, x, y in zip(labels, lats, rmses):
             ax.annotate(label, (x, y), textcoords="offset points", xytext=(6, 3), fontsize=9)
-        ax.set(xlabel="Median Latency (ms, 200 rows)",
-               ylabel="Test RMSE",
-               title="AutoML Accuracy vs Inference Speed")
+        ax.set(
+            xlabel="Median Latency (ms, 200 rows)",
+            ylabel="Test RMSE",
+            title="AutoML Accuracy vs Inference Speed",
+        )
         ax.invert_yaxis()
         fig.tight_layout()
         fig.savefig(config.AUTOML_DIR / "accuracy_vs_latency.png", bbox_inches="tight")
         plt.close(fig)
-        print(f"Chart -> {(config.AUTOML_DIR / 'accuracy_vs_latency.png').relative_to(config.ROOT)}")
+        print(
+            f"Chart -> {(config.AUTOML_DIR / 'accuracy_vs_latency.png').relative_to(config.ROOT)}"
+        )
     except Exception as exc:
         print(f"Chart skipped: {exc}")
 
 
 if __name__ == "__main__":
     import argparse
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--flaml-budget", type=int, default=60)
     args = ap.parse_args()

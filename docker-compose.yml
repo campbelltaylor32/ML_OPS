@@ -16,9 +16,15 @@ services:
   # Usage: docker compose run --rm pipeline
   pipeline:
     <<: *base
-    command: bash run_all.sh
+    command: dvc repro
     profiles: [pipeline]   # excluded from `docker compose up`
-    mem_limit: 6g          # H2O JVM needs headroom beyond the 2G heap
+
+  # ── Run guard tests against pipeline artifacts ───────────────────────────────
+  # Usage: docker compose run --rm test
+  test:
+    <<: *base
+    command: uv run python -m pytest -q
+    profiles: [test]       # excluded from `docker compose up`
 
   # ── Serving stack (start all three with: docker compose up) ─────────────────
   mlflow:

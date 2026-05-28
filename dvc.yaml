@@ -1,4 +1,13 @@
 stages:
+  eda:
+    cmd: uv run python -m src.eda
+    deps:
+      - data/raw/student_performance.csv
+      - src/eda.py
+      - src/config.py
+    outs:
+      - reports/figures
+
   lineage:
     cmd: uv run python -m src.lineage.run_lineage
     deps:
