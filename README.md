@@ -133,16 +133,3 @@ selected **XGBoost**.
 | **Mean predicted score** | ~71.2 | ~53.2 | ▼ ~18 points |
 | **% flagged At Risk** | ~14% | ~70% | ▲ +56 pts |
 | **Prediction drift (PSI)** | — | ~3.97 (**major drift**) | detected |
-
-
-## 16. How to compare original vs changed results
-1. `python -m src.batch_inference` writes `reports/metrics_comparison.json`
-   (RMSE/MAE/R²/mean prediction/at-risk % for both sets + the deltas) and
-   `reports/predictions_comparison.csv` (per-student original vs modified prediction).
-2. `python -m src.monitoring` writes `reports/monitoring/drift_report.json`
-   (per-feature PSI + prediction PSI).
-3. The **Monitoring tab** of the Streamlit dashboard shows all of this live:
-   metric deltas, the overlaid prediction-distribution chart, and a colour-coded
-   PSI drift table. The interpretation: degraded behaviour (less study, more
-   stress, less sleep, lower attendance) → lower predicted scores → more at-risk
-   flags → the monitor catches the input drift before anyone sees real grades.
