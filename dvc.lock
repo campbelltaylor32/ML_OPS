@@ -75,8 +75,13 @@ stages:
       size: 391858
     - path: models/model_metadata.json
       hash: md5
-      md5: 08313c1d3b6a8ef55297adfa6c9176a8
+      md5: e35605dc1fbb2c2cae1d7e539cd08f45
       size: 634
+    - path: reports/automl
+      hash: md5
+      md5: 7da66bc01b4e6db744370b07607f10a7.dir
+      size: 20131
+      nfiles: 2
   monitoring_evidently:
     cmd: python -m src.monitoring_evidently
     deps:
