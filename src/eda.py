@@ -31,6 +31,9 @@ def run_eda():
     df = pd.read_csv(config.RAW_DATA)
     print(f"Loaded {df.shape[0]} rows x {df.shape[1]} cols from {config.RAW_DATA.name}")
 
+    # convenience: boolean at-risk flag reused by several charts below
+    at_risk = df[config.TARGET] < config.RISK_THRESHOLD
+
     # --- 1. Target distribution -------------------------------------------- #
     fig, ax = plt.subplots(figsize=(7, 4))
     ax.hist(df[config.TARGET], bins=30, color="#4C72B0", edgecolor="white")
@@ -84,7 +87,86 @@ def run_eda():
     ax.set(title="Average Performance Score by Major", ylabel="Mean score")
     _save(fig, "06_score_by_major.png")
 
+    # --- 7. Numeric feature correlation matrix (multicollinearity check) ---- #
+    # MLOps note: we keep an eye on feature-to-feature correlation so we don't
+    # feed near-duplicate signals into the model during feature selection.
+    cmat = df[config.NUMERIC_FEATURES].corr()
+    fig, ax = plt.subplots(figsize=(7, 5.5))
+    im = ax.imshow(cmat.values, cmap="coolwarm", vmin=-1, vmax=1)
+    ax.set_xticks(range(len(cmat.columns)))
+    ax.set_yticks(range(len(cmat.index)))
+    ax.set_xticklabels(cmat.columns, rotation=45, ha="right")
+    ax.set_yticklabels(cmat.index)
+    ax.grid(False)  # a grid on top of the cells just adds noise
+    for i in range(cmat.shape[0]):
+        for j in range(cmat.shape[1]):
+            ax.text(j, i, f"{cmat.iat[i, j]:.2f}", ha="center", va="center",
+                    color="white" if abs(cmat.iat[i, j]) > 0.5 else "black",
+                    fontsize=8)
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Pearson correlation")
+    ax.set(title="Correlation between numeric features")
+    _save(fig, "07_feature_correlation_matrix.png")
+
+    # --- 8. At-risk rate by major (who needs help, not just mean score) ---- #
+    risk_by_major = (df.assign(_risk=at_risk)
+                       .groupby("Major")["_risk"].mean()
+                       .mul(100).sort_values())
+    fig, ax = plt.subplots(figsize=(7, 4))
+    ax.bar(risk_by_major.index, risk_by_major.values, color="#C44E52")
+    ax.set(title=f"At-Risk rate by Major (score < {config.RISK_THRESHOLD:.0f})",
+           ylabel="At-Risk students (%)")
+    _save(fig, "08_risk_by_major.png")
+
+    # --- 9. Study hours vs score, split by at-risk flag -------------------- #
+    # Reinforces the threshold decision: shows where the at-risk band sits.
+    fig, ax = plt.subplots(figsize=(7, 4))
+    ax.scatter(df.loc[~at_risk, "Study_Hours_Per_Day"],
+               df.loc[~at_risk, config.TARGET], s=12, alpha=0.4,
+               color="#4C72B0", label="On track")
+    ax.scatter(df.loc[at_risk, "Study_Hours_Per_Day"],
+               df.loc[at_risk, config.TARGET], s=12, alpha=0.6,
+               color="#C44E52", label="At-risk")
+    ax.axhline(config.RISK_THRESHOLD, color="#C44E52", linestyle="--",
+               label=f"At-Risk threshold (<{config.RISK_THRESHOLD:.0f})")
+    ax.set(title="Study Hours vs Performance Score (by risk status)",
+           xlabel="Study Hours per Day", ylabel="Performance Score")
+    ax.legend()
+    _save(fig, "09_study_vs_score_by_risk.png")
+
+    # --- 10. Part-time job vs performance (close the trade-off story) ------- #
+    # Chart 5 showed a job costs study hours; this shows whether that actually
+    # reads through to the score the model has to predict.
+    fig, ax = plt.subplots(figsize=(7, 4))
+    groups = [df.loc[df["Part_Time_Job"] == v, config.TARGET]
+              for v in ["No", "Yes"]]
+    ax.boxplot(groups)
+    ax.set_xticklabels(["No job", "Part-time job"])
+    ax.set(title="Part-time job vs Performance Score",
+           ylabel="Performance Score")
+    _save(fig, "10_job_vs_score.png")
+
+    # --- 11. Distributions of the numeric behavioural features ------------- #
+    feats = config.NUMERIC_FEATURES
+    ncols = 3
+    nrows = -(-len(feats) // ncols)  # ceil division
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 3 * nrows))
+    for ax, feat in zip(axes.ravel(), feats):
+        ax.hist(df[feat], bins=25, color="#4C72B0", edgecolor="white")
+        ax.set(title=feat, ylabel="Count")
+    for ax in axes.ravel()[len(feats):]:  # blank out any unused panels
+        ax.set_visible(False)
+    fig.suptitle("Distributions of numeric behavioural features", y=1.02)
+    _save(fig, "11_numeric_distributions.png")
+
     # --- Text summary used in slides / README ------------------------------ #
+    # strongest off-diagonal correlation among numeric features (collinearity)
+    abs_cmat = cmat.abs()
+    for f in abs_cmat.columns:
+        abs_cmat.loc[f, f] = 0.0
+    top_pair_val = abs_cmat.values.max()
+    i, j = divmod(abs_cmat.values.argmax(), abs_cmat.shape[1])
+    top_pair = sorted([abs_cmat.index[i], abs_cmat.columns[j]])
+
     summary = {
         "n_rows": int(df.shape[0]),
         "n_cols": int(df.shape[1]),
@@ -93,10 +175,16 @@ def run_eda():
         "target_mean": round(float(df[config.TARGET].mean()), 2),
         "target_min": float(df[config.TARGET].min()),
         "target_max": float(df[config.TARGET].max()),
-        "at_risk_count": int((df[config.TARGET] < config.RISK_THRESHOLD).sum()),
-        "at_risk_pct": round(float((df[config.TARGET] < config.RISK_THRESHOLD).mean() * 100), 1),
+        "at_risk_count": int(at_risk.sum()),
+        "at_risk_pct": round(float(at_risk.mean() * 100), 1),
         "top_positive_driver": corr.idxmax(),
         "top_negative_driver": corr.idxmin(),
+        "highest_risk_major": risk_by_major.idxmax(),
+        "highest_risk_major_pct": round(float(risk_by_major.max()), 1),
+        "at_risk_pct_part_time": round(float(at_risk[df["Part_Time_Job"] == "Yes"].mean() * 100), 1),
+        "at_risk_pct_no_job": round(float(at_risk[df["Part_Time_Job"] == "No"].mean() * 100), 1),
+        "strongest_feature_pair": top_pair,
+        "strongest_feature_pair_corr": round(float(top_pair_val), 2),
     }
     out = config.REPORTS_DIR / "eda_summary.json"
     out.write_text(json.dumps(summary, indent=2))
