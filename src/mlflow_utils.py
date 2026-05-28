@@ -6,10 +6,12 @@ All wrappers delegate to the real MLflow/CodeCarbon APIs; nothing is cached.
 """
 import contextlib
 import json
+import logging
 import tempfile
 import time
 from pathlib import Path
 from typing import Any, Dict, Generator, Optional
+
 
 import mlflow
 import mlflow.sklearn
@@ -55,6 +57,10 @@ def track_emissions(project_name: str = "student_performance") -> Generator[None
     """
     try:
         from codecarbon import EmissionsTracker
+        # codecarbon's external/logger.py resets the logger to INFO on import;
+        # override it here, after the import, so the "Multiple instances" warning
+        # (fired at __init__ line 310, before set_logger_level at line 390) is suppressed.
+        logging.getLogger("codecarbon").setLevel(logging.ERROR)
         tracker = EmissionsTracker(
             project_name=project_name,
             save_to_file=False,
