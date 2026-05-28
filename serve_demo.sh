@@ -25,15 +25,15 @@ trap cleanup EXIT INT TERM
 
 echo "Starting services..."
 
-mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000 \
+uv run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5001 \
     --host 127.0.0.1 >/dev/null 2>&1 &
 PIDS+=($!)
 
-uvicorn app.inference_api:app --port 8000 --host 127.0.0.1 \
+uv run uvicorn app.inference_api:app --port 8000 --host 127.0.0.1 \
     --log-level warning >/dev/null 2>&1 &
 PIDS+=($!)
 
-streamlit run app/dashboard.py --server.port 8501 \
+uv run streamlit run app/dashboard.py --server.port 8501 \
     --server.headless true >/dev/null 2>&1 &
 PIDS+=($!)
 
@@ -80,7 +80,7 @@ echo "  FastAPI health probe"
 echo "    → http://localhost:8000/health"
 echo ""
 echo "  MLflow UI  (experiments + model registry)"
-echo "    → http://localhost:5000"
+echo "    → http://localhost:5001"
 echo ""
 if [ -n "$STREAMLIT_PUBLIC" ] || [ -n "$API_PUBLIC" ]; then
 echo "  NGROK PUBLIC TUNNELS"

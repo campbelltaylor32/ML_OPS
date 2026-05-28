@@ -1,0 +1,53 @@
+[project]
+name = "student-performance-risk"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    # Core data + ML
+    "pandas==2.3.3",
+    "numpy==2.4.6",
+    "scikit-learn==1.8.0",
+
+    # AutoML
+    "flaml[automl]==2.6.0",
+    "lightgbm==4.6.0",
+    "xgboost==2.1.4",
+
+    # Experiment tracking + model registry
+    "mlflow==3.12.0",
+    "joblib==1.5.3",
+
+    # Serving
+    "fastapi==0.136.3",
+    "uvicorn[standard]==0.48.0",
+    "streamlit==1.57.0",
+
+    # Visualisation
+    "matplotlib==3.10.9",
+    "plotly==5.24.1",
+
+    # Monitoring
+    "evidently==0.7.21",
+    "python-dotenv==1.2.2",
+
+    # Carbon tracking (optional at runtime; always installed)
+    "codecarbon==3.2.7",
+
+    # Data versioning
+    "dvc==3.55.2",
+    "pathspec==0.12.1",
+
+    # Testing
+    "pytest==9.0.3",
+]
+
+[project.optional-dependencies]
+# H2O requires JVM 8+. Install locally with: uv sync --extra h2o
+h2o = ["h2o==3.46.0.11"]
+
+[tool.uv]
+# Exclude h2o from the default Docker/CI sync (no JVM in slim images).
+# The automl_benchmark already skips H2O gracefully when it's absent.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

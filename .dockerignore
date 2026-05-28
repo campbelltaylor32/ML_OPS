@@ -1,0 +1,29 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Generated artifacts (pipeline recreates these)
+data/processed/
+data/staging/
+data/intermediate/
+data/marts/
+data/feature_store/
+reports/figures/
+reports/monitoring/
+mlruns/
+
+# Large optional files
+models/*.pkl
+models/*.json
+
+# Secrets
+.env
+
+# Dev tooling
+.git/
+.codegraph/
+.cursor/
+*.log

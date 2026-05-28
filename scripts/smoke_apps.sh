@@ -13,7 +13,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "--- Smoke: FastAPI inference API ---"
-uvicorn app.inference_api:app --port $PORT --log-level warning &
+uv run uvicorn app.inference_api:app --port $PORT --log-level warning &
 API_PID=$!
 
 # Wait up to 15 s for the API to be ready
@@ -29,7 +29,7 @@ for i in $(seq 1 15); do
 done
 
 echo "  /health ..."
-curl -fsS "http://localhost:$PORT/health" | python -c "
+curl -fsS "http://localhost:$PORT/health" | uv run python -c "
 import sys, json
 d = json.load(sys.stdin)
 assert d.get('status') == 'ok', f'unexpected health response: {d}'
@@ -40,7 +40,7 @@ echo "  POST /predict ..."
 curl -fsS -X POST "http://localhost:$PORT/predict" \
     -H "Content-Type: application/json" \
     -d '{"Age":21,"Study_Hours_Per_Day":4.0,"Sleep_Hours_Per_Day":7.0,"Attendance_Rate":80.0,"Stress_Level":4.0,"Gender":"Female","Major":"STEM","Living_Area":"Urban","Parent_Education":"Bachelor","Scholarship_Status":"No","Part_Time_Job":"No","Extracurricular_Activities":"No","Internet_Access":"Yes","Exam_Proximity":"No"}' \
-    | python -c "
+    | uv run python -c "
 import sys, json
 d = json.load(sys.stdin)
 assert 'predicted_score' in d, f'missing predicted_score: {d}'
@@ -50,7 +50,7 @@ print('  OK:', d)
 
 echo ""
 echo "--- Smoke: Streamlit dashboard (import + model load) ---"
-python -c "
+uv run python -c "
 import importlib.util, sys
 spec = importlib.util.spec_from_file_location('dashboard', 'app/dashboard.py')
 # Streamlit can't headlessly exec the page, but the module-level
