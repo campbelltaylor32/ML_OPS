@@ -1,5 +1,7 @@
 # Student Performance Risk Monitoring System
 
+[![CI](https://github.com/campbelltaylor32/ML_OPS/actions/workflows/ci.yml/badge.svg)](https://github.com/campbelltaylor32/ML_OPS/actions/workflows/ci.yml)
+
 An end-to-end **Machine Learning Operations (MLOps)** project that predicts a
 student's **Performance Score** from demographic, background, and behavioural
 features, and flags students who may be **At Risk** so academic advisors can
@@ -7,6 +9,24 @@ intervene early.
 
 The system demonstrates the **full MLOps lifecycle** across four pillars:
 **Data Lineage → Feature Store + Experiment Tracking → AutoML Optimization → Drift Monitoring**.
+
+---
+
+## Live Services & URLs
+
+Run `bash serve_demo.sh` to start all apps and print every URL. Or open
+`app/serve_index.html` in your browser for a one-click landing page.
+
+| Service | URL | Notes |
+|---|---|---|
+| Streamlit dashboard | http://localhost:8501 | Predict + Monitoring tabs |
+| FastAPI Swagger UI | http://localhost:8000/docs | Interactive inference API |
+| FastAPI health probe | http://localhost:8000/health | Liveness check |
+| MLflow UI | http://localhost:5000 | Experiments + model registry |
+| Evidently drift report | `reports/monitoring/evidently_report.html` | Static HTML |
+| AutoML benchmark chart | `reports/automl/accuracy_vs_latency.png` | Static PNG |
+| Lineage DAG | `reports/lineage/lineage_dag.png` | Static PNG |
+| All EDA figures | `reports/figures/` | Static PNGs |
 
 ---
 

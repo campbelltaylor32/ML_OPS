@@ -34,6 +34,15 @@ Format: `[ ]` open · `[~]` in-progress · `[x]` done
 
 ---
 
+## CI/CD & Demo Serving
+
+- [x] Create `scripts/ci_pipeline.sh` — reduced 8-step pipeline for CI (FLAML budget 15s, skips H2O/EDA/experiment) — 2026-05-28
+- [x] Create `scripts/smoke_apps.sh` — boots FastAPI, asserts `/health` + `/predict`, import-checks dashboard — 2026-05-28
+- [x] Create `.github/workflows/ci.yml` — push/PR triggered: install → pipeline → pytest → smoke — 2026-05-28
+- [x] Create `serve_demo.sh` — launches all 3 apps + prints full URL index; optional ngrok tunnels if `NGROK_AUTHTOKEN` set — 2026-05-28
+- [x] Create `app/serve_index.html` — static landing page with clickable links to all apps + reports — 2026-05-28
+- [x] Add CI badge + "Live Services & URLs" table to README.md — 2026-05-28
+
 ## Backlog
 
 - [ ] Add `dvc metrics` tracking for accuracy, F1, PSI scores

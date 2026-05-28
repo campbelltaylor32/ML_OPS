@@ -1,0 +1,38 @@
+name: CI — build, test, smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('requirements.lock') }}
+          restore-keys: pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.lock
+
+      - name: Run reduced pipeline
+        run: bash scripts/ci_pipeline.sh
+
+      - name: Run guard tests (G1–G4 + smoke)
+        run: python -m pytest -q
+
+      - name: Smoke-test deployable apps
+        run: bash scripts/smoke_apps.sh

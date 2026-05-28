@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## CodeGraph — Default First Step (Every Prompt)
+
+**Before any file read, grep, or edit**, orient with CodeGraph MCP tools. This project has a live index (`codegraph_status` to verify). The workflow on every prompt:
+
+1. **Understand the area** → `codegraph_context` on the relevant symbol/task name
+2. **Find a symbol** → `codegraph_search` (never grep-first for symbol lookups)
+3. **Trace a flow** → `codegraph_trace` from→to (one call, full path)
+4. **Survey several symbols** → `codegraph_explore` (one capped call, not multiple `Read`s)
+5. **Check blast radius before editing** → `codegraph_impact`
+
+Never spawn an Explore agent or run a grep/Read loop when 1–2 codegraph calls answer the question. Raw `Read`/`grep` is reserved for: literal string content, comments, log messages, or a specific line after codegraph surfaced the file.
+
 ## Commands
 
 ```bash
