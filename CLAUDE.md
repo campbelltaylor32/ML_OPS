@@ -5,20 +5,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Full pipeline (regenerates all artifacts from raw CSV)
+# Full enhanced pipeline (11 steps: lineage → features → experiments → automl → evaluate → monitor)
 bash run_all.sh
 
-# Individual steps
+# Individual pillars
+python -m src.lineage.run_lineage               # Lineage: Raw→Staging→Intermediate→Marts + diagram
+python -m src.feature_store                     # Feature Store: materialise v1 + v2
+python -m src.experiment                        # Experiment grid: feat×hparams + CodeCarbon
+python -m src.automl_benchmark --flaml-budget 60 # AutoML: Baseline/FLAML/H2O + latency + top-5
 python -m src.eda                               # EDA charts -> reports/figures/
-python -m src.preprocessing                     # train/test split -> data/processed/
-python -m src.train_automl --time-budget 60     # FLAML AutoML + MLflow tracking
-python -m src.evaluate                          # metrics on original test set
-python -m src.make_modified_test                # build "academic stress" test set
-python -m src.batch_inference                   # predict both sets + compare
+python -m src.preprocessing                     # CSV-compat train/test split -> data/processed/
+python -m src.train_automl --time-budget 60     # Standalone FLAML AutoML + MLflow tracking
+python -m src.evaluate                          # Metrics on original test set
+python -m src.make_modified_test                # Build "academic stress" test set
+python -m src.batch_inference                   # Predict both sets + compare
 python -m src.monitoring                        # PSI drift report
+python -m src.monitoring_evidently              # Evidently DataDrift+DataSummary (+ Cloud if token set)
 
-# Tests (requires pipeline artifacts to exist first)
-pytest -q
+# Tests — ALWAYS use venv python, not bare pytest (see lessons_learned.md #4)
+.venv/bin/python -m pytest -q
 
 # Serving
 mlflow ui --backend-store-uri sqlite:///mlflow.db   # http://localhost:5000
@@ -28,26 +33,50 @@ uvicorn app.inference_api:app --port 8000            # http://localhost:8000/doc
 
 ## Architecture
 
-**Single config source of truth:** `src/config.py` defines all paths, feature lists, random seed, MLflow URIs, and the `STRESS_SCENARIO` dict. Every script imports from it — change a value there and the whole pipeline stays consistent.
+**Single config source of truth:** `src/config.py` defines all paths (including lineage, feature store, and report dirs), feature lists, random seed, MLflow URIs, and env var keys for Evidently Cloud. Every script imports from it.
 
-**Pipeline flow:**
+**Four-pillar enhanced pipeline flow:**
 ```
-raw CSV -> src/eda.py -> src/preprocessing.py -> src/train_automl.py
-       -> src/evaluate.py -> src/make_modified_test.py -> src/batch_inference.py
-       -> src/monitoring.py
+raw CSV
+  └─[lineage/run_lineage.py]──▶ data/staging/ → data/intermediate/ → data/marts/
+       └─[feature_store.py]──▶ data/feature_store/{v1,v2}/
+            └─[experiment.py]──▶ MLflow runs (feat×hparams, CodeCarbon emissions)
+                 └─[automl_benchmark.py]──▶ Baseline/FLAML/H2O + latency + top-5 → models/best_model.pkl
+                      └─[monitoring.py + monitoring_evidently.py]──▶ PSI + Evidently reports
 ```
 
-**Model artifact:** `train_automl.py` builds a single sklearn `Pipeline(preprocessor → model)` — the `ColumnTransformer` (OHE for categoricals, passthrough for numerics) is baked in alongside the FLAML-chosen estimator. This means `app/` feeds raw student rows; no separate preprocessing step at serve time. The pipeline is saved both to MLflow registry and as `models/best_model.pkl` (so the app works without MLflow running).
+**Lineage contracts (checking guards):** `src/lineage/contracts.py` defines `validate_staging()`,
+`validate_intermediate()`, `validate_marts()`, `validate_feature_store()`, `validate_model_ready()`.
+Each raises on violation. Called at the top of every downstream module's main.
 
-**Monitoring:** `src/monitoring.py` computes PSI (Population Stability Index) between original and modified test prediction distributions. No heavy dependencies — the Evidently-based `src/monitoring_evidently.py` is an optional alternative for HTML reports.
+**Feature store:** `src/feature_store.py` has `FeatureStore.get_feature_set(version)` which returns
+`(X_train, X_test, y_train, y_test, meta)`. Version `v2` adds `study_sleep_ratio` + `effective_attendance`.
 
-**Modified test set:** `src/make_modified_test.py` applies `STRESS_SCENARIO` from config (halve study hours, spike stress, reduce sleep/attendance) to simulate academic stress. Used to demonstrate observable model degradation and drift detection.
+**MLflow wrappers:** `src/mlflow_utils.py` has `start_tracked_run`, `log_feature_set`, `track_emissions`.
+Always use these instead of raw `mlflow.start_run` so carbon tracking is consistent.
 
-**Deployment pair:** `app/inference_api.py` is a FastAPI REST endpoint; `app/dashboard.py` is a Streamlit app with two tabs — inference (single student) and monitoring (metric deltas + PSI drift table + prediction distribution chart).
+**Model artifact:** `automl_benchmark.py` saves the best FLAML pipeline to `models/best_model.pkl`
+and registers it. `app/` feeds raw rows — preprocessing is baked into the pipeline.
+
+**Monitoring:** Two tracks: `src/monitoring.py` (PSI, dependency-free) and `src/monitoring_evidently.py`
+(Evidently DataDrift + DataSummary; Cloud-upload when `EVIDENTLY_API_TOKEN` env var is set).
 
 ## Key constraints
 
-- **No leakage columns:** `Math_Score`, `Science_Score`, `Language_Score`, `History_Score`, `Grade` are never fed to the model — they are the direct components of `Average_Score` (the target).
-- **MLflow tracking URI must be SQLite** (`sqlite:///mlflow.db`) to enable the Model Registry locally; a pure file store cannot register models.
-- **`models/best_model.pkl` is the serving artifact** — the apps load this directly and must not depend on the MLflow server being live.
-- `data/processed/` and `reports/` are generated; do not commit them. Run the pipeline to regenerate.
+- **No leakage columns:** `Math_Score`, `Science_Score`, `Language_Score`, `History_Score`, `Grade` must never reach the model. Validated by `contracts.validate_marts()`.
+- **MLflow tracking URI must be SQLite** (`sqlite:///mlflow.db`) — required for the Model Registry locally.
+- **`models/best_model.pkl` is the serving artifact** — apps load this directly; do not depend on MLflow being live.
+- **`data/processed/`, `data/staging/`, `data/intermediate/`, `data/marts/`, `data/feature_store/`, `reports/` are all generated** — do not commit them. Run `bash run_all.sh` to regenerate.
+- **Evidently Cloud is optional** — set `EVIDENTLY_API_TOKEN` + `EVIDENTLY_PROJECT_ID` env vars to enable. Local HTML always written.
+- **H2O is optional** — requires JVM 8+. Install with `pip install h2o`. The benchmark skips cleanly without it.
+
+## Anti-patterns and rules (from lessons_learned.md)
+
+- **Never call `pytest` bare** — always use `.venv/bin/python -m pytest -q`. The system pytest resolves a different `src` and will always fail with `ImportError: cannot import name 'config' from 'src'`.
+- **Verify third-party constructor signatures before use** — run `python -c "import inspect; from pkg import Cls; print(inspect.signature(Cls.__init__))"`. Known traps:
+  - `evidently.Report`: parameter is `metrics=`, NOT `items=` (changed in 0.7.x)
+  - `evidently.ui.workspace.CloudWorkspace`: import from `evidently.ui.workspace`, NOT `.workspace.cloud`
+- **Every new `import <pkg>` must appear in `requirements.txt`** in the same change.
+- **Optional heavy deps (H2O, Evidently Cloud, CodeCarbon) must be wrapped** in `try/except ImportError` and skip gracefully — never let them crash the core pipeline.
+- **`ColumnTransformer` drops feature names** — if downstream code needs named features (importance, SHAP), add `.set_output(transform="pandas")` to the transformer (sklearn ≥ 1.2).
+- **`src/lineage/contracts.py` guards must be called** at the top of any module that reads a downstream artifact — do not assume upstream validity.

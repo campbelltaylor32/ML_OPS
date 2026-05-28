@@ -22,6 +22,18 @@ TRAIN_PATH = PROCESSED_DIR / "train.csv"
 TEST_PATH = PROCESSED_DIR / "test.csv"
 TEST_MODIFIED_PATH = PROCESSED_DIR / "test_modified.csv"
 
+# Lineage staged layers
+STAGING_DIR = ROOT / "data" / "staging"
+INTERMEDIATE_DIR = ROOT / "data" / "intermediate"
+MARTS_DIR = ROOT / "data" / "marts"
+STAGING_PATH = STAGING_DIR / "stg_students.parquet"
+INTERMEDIATE_PATH = INTERMEDIATE_DIR / "int_student_features.parquet"
+MART_TRAIN_PATH = MARTS_DIR / "student_training.parquet"
+MART_TEST_PATH = MARTS_DIR / "student_serving.parquet"
+
+# Feature store
+FEATURE_STORE_DIR = ROOT / "data" / "feature_store"
+
 MODELS_DIR = ROOT / "models"
 MODEL_PATH = MODELS_DIR / "best_model.pkl"          # plain pickle for the app
 MODEL_META_PATH = MODELS_DIR / "model_metadata.json"
@@ -29,8 +41,17 @@ MODEL_META_PATH = MODELS_DIR / "model_metadata.json"
 REPORTS_DIR = ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
 MONITORING_DIR = REPORTS_DIR / "monitoring"
+LINEAGE_DIR = REPORTS_DIR / "lineage"
+EXPERIMENTS_DIR = REPORTS_DIR / "experiments"
+AUTOML_DIR = REPORTS_DIR / "automl"
 PREDICTIONS_PATH = REPORTS_DIR / "predictions_comparison.csv"
 METRICS_PATH = REPORTS_DIR / "metrics_comparison.json"
+
+# Evidently Cloud (read from environment; absent = local-only mode)
+import os as _os
+EVIDENTLY_API_TOKEN: str = _os.environ.get("EVIDENTLY_API_TOKEN", "")
+EVIDENTLY_CLOUD_URL: str = _os.environ.get("EVIDENTLY_CLOUD_URL", "https://app.evidently.cloud")
+EVIDENTLY_PROJECT_ID: str = _os.environ.get("EVIDENTLY_PROJECT_ID", "")
 
 # MLflow tracking + registry (sqlite backend so the Model Registry works locally)
 MLFLOW_TRACKING_URI = f"sqlite:///{ROOT / 'mlflow.db'}"
@@ -108,5 +129,9 @@ CLIP_RANGES = {
 
 def ensure_dirs() -> None:
     """Create output directories if they do not exist (safe to call anytime)."""
-    for d in (PROCESSED_DIR, MODELS_DIR, FIGURES_DIR, MONITORING_DIR):
+    for d in (
+        PROCESSED_DIR, MODELS_DIR, FIGURES_DIR, MONITORING_DIR,
+        STAGING_DIR, INTERMEDIATE_DIR, MARTS_DIR,
+        FEATURE_STORE_DIR, LINEAGE_DIR, EXPERIMENTS_DIR, AUTOML_DIR,
+    ):
         d.mkdir(parents=True, exist_ok=True)

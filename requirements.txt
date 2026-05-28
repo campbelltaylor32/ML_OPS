@@ -21,8 +21,14 @@ streamlit>=1.30
 matplotlib>=3.7
 plotly>=5.18
 
-# Optional monitoring (built-in PSI monitor works without this)
-evidently>=0.4
+# Monitoring
+evidently>=0.7
+
+# Carbon emissions tracking (optional; core pipeline works without)
+codecarbon>=2.0
+
+# AutoML backends (H2O requires JVM; optional)
+# h2o>=3.44  # install manually: pip install h2o
 
 # Testing
 pytest>=7.4
