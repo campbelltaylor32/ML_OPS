@@ -27,6 +27,7 @@ stages:
     outs:
       - models/best_model.pkl
       - models/model_metadata.json
+      - reports/automl
     params:
       - params.yaml:
           - automl.flaml_budget

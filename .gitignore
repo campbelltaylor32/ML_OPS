@@ -21,7 +21,6 @@ data/marts/
 data/feature_store/
 reports/figures/*.png
 reports/monitoring/*
-reports/automl/
 reports/*.json
 reports/*.csv
 
