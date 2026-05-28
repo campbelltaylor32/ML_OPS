@@ -12,7 +12,7 @@ registry → deployment → monitoring → drift validation.
 ## 1. Project title
 **Student Performance Risk Monitoring System — Predicting and Monitoring Academic Performance with MLOps**
 
-## 2. Business problem statement (stakeholder language)
+## 2. Business problem statement
 > Academic advisors cannot personally track the workload, sleep, stress, and
 > attendance of every student, so at-risk students are often identified only
 > after grades have already slipped. This project delivers an automated risk
