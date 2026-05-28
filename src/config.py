@@ -9,6 +9,7 @@ seed, and modeling decisions from this one file. Nothing is hard-coded twice,
 so a teammate can change one value here and the entire pipeline stays
 consistent.
 """
+
 from pathlib import Path
 
 # --------------------------------------------------------------------------- #
@@ -35,7 +36,7 @@ MART_TEST_PATH = MARTS_DIR / "student_serving.parquet"
 FEATURE_STORE_DIR = ROOT / "data" / "feature_store"
 
 MODELS_DIR = ROOT / "models"
-MODEL_PATH = MODELS_DIR / "best_model.pkl"          # plain pickle for the app
+MODEL_PATH = MODELS_DIR / "best_model.pkl"  # plain pickle for the app
 MODEL_META_PATH = MODELS_DIR / "model_metadata.json"
 
 REPORTS_DIR = ROOT / "reports"
@@ -48,8 +49,10 @@ PREDICTIONS_PATH = REPORTS_DIR / "predictions_comparison.csv"
 METRICS_PATH = REPORTS_DIR / "metrics_comparison.json"
 
 # Evidently Cloud (read from .env file then environment; absent = local-only mode)
-import os as _os
-from dotenv import load_dotenv as _load_dotenv
+import os as _os  # noqa: E402
+
+from dotenv import load_dotenv as _load_dotenv  # noqa: E402
+
 _load_dotenv(ROOT / ".env")
 EVIDENTLY_API_TOKEN: str = _os.environ.get("EVIDENTLY_API_TOKEN", "")
 EVIDENTLY_CLOUD_URL: str = _os.environ.get("EVIDENTLY_CLOUD_URL", "https://app.evidently.cloud")
@@ -115,25 +118,33 @@ RISK_THRESHOLD = 60.0
 # Each entry: column -> (operation, value). >=2 features are changed.
 # --------------------------------------------------------------------------- #
 STRESS_SCENARIO = {
-    "Study_Hours_Per_Day": ("multiply", 0.5),   # halve study time
-    "Stress_Level":        ("add", 3.0),         # spike stress
-    "Sleep_Hours_Per_Day": ("add", -1.5),        # lose sleep
-    "Attendance_Rate":     ("add", -15.0),       # skip classes
+    "Study_Hours_Per_Day": ("multiply", 0.5),  # halve study time
+    "Stress_Level": ("add", 3.0),  # spike stress
+    "Sleep_Hours_Per_Day": ("add", -1.5),  # lose sleep
+    "Attendance_Rate": ("add", -15.0),  # skip classes
 }
 # Clip ranges so modified values stay physically plausible.
 CLIP_RANGES = {
     "Study_Hours_Per_Day": (0.0, 24.0),
-    "Stress_Level":        (1.0, 10.0),
+    "Stress_Level": (1.0, 10.0),
     "Sleep_Hours_Per_Day": (0.0, 14.0),
-    "Attendance_Rate":     (0.0, 100.0),
+    "Attendance_Rate": (0.0, 100.0),
 }
 
 
 def ensure_dirs() -> None:
     """Create output directories if they do not exist (safe to call anytime)."""
     for d in (
-        PROCESSED_DIR, MODELS_DIR, FIGURES_DIR, MONITORING_DIR,
-        STAGING_DIR, INTERMEDIATE_DIR, MARTS_DIR,
-        FEATURE_STORE_DIR, LINEAGE_DIR, EXPERIMENTS_DIR, AUTOML_DIR,
+        PROCESSED_DIR,
+        MODELS_DIR,
+        FIGURES_DIR,
+        MONITORING_DIR,
+        STAGING_DIR,
+        INTERMEDIATE_DIR,
+        MARTS_DIR,
+        FEATURE_STORE_DIR,
+        LINEAGE_DIR,
+        EXPERIMENTS_DIR,
+        AUTOML_DIR,
     ):
         d.mkdir(parents=True, exist_ok=True)

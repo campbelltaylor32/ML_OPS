@@ -2,9 +2,10 @@
 run_lineage.py  --  Orchestrate the full Raw→Staging→Intermediate→Mart pipeline
 Run:  python -m src.lineage.run_lineage
 """
+
 from src import config
-from src.lineage import stg_students, int_features, mart_training
-from src.lineage.contracts import validate_staging, validate_intermediate, validate_marts
+from src.lineage import int_features, mart_training, stg_students
+from src.lineage.contracts import validate_intermediate, validate_marts, validate_staging
 from src.lineage.lineage_diagram import run as draw_diagram
 
 

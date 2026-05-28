@@ -6,27 +6,26 @@ Each run logs: feature metadata, hyperparams, RMSE/MAE/R2, co2_kg_emissions.
 
 Run:  python -m src.experiment
 """
+
 import json
 import time
 from typing import Any, Dict, List
 
 import lightgbm as lgb
-import numpy as np
-import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
 from src import config
 from src.evaluate import regression_metrics
-from src.feature_store import FeatureStore, CATEGORICAL_V2, NUMERIC_V2
+from src.feature_store import CATEGORICAL_V2, FeatureStore
 from src.lineage.contracts import validate_feature_store
-from src.mlflow_utils import start_tracked_run, log_feature_set, track_emissions
+from src.mlflow_utils import log_feature_set, start_tracked_run, track_emissions
 
 HYPERPARAM_GRID: List[Dict[str, Any]] = [
-    {"n_estimators": 100, "learning_rate": 0.1,  "num_leaves": 31},
+    {"n_estimators": 100, "learning_rate": 0.1, "num_leaves": 31},
     {"n_estimators": 200, "learning_rate": 0.05, "num_leaves": 63},
-    {"n_estimators": 100, "learning_rate": 0.2,  "num_leaves": 15},
+    {"n_estimators": 100, "learning_rate": 0.2, "num_leaves": 15},
 ]
 
 
@@ -61,6 +60,7 @@ def run_grid() -> List[Dict[str, Any]]:
                 with track_emissions("student_experiment"):
                     log_feature_set(fmeta)
                     import mlflow
+
                     mlflow.log_params(hp)
 
                     pipe = _build_pipeline(cat_cols, hp)

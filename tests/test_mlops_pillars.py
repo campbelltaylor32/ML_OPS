@@ -2,17 +2,18 @@
 test_mlops_pillars.py  --  Guard tests G1–G4 for the four MLOps pillars
 Run:  pytest -q  (after running run_all.sh with the new enhanced pipeline)
 """
+
 import json
-import pytest
+
 import pandas as pd
 
 from src import config
 from src.lineage.contracts import (
-    validate_staging,
+    validate_feature_store,
     validate_intermediate,
     validate_marts,
-    validate_feature_store,
     validate_model_ready,
+    validate_staging,
 )
 
 

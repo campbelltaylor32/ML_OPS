@@ -97,9 +97,7 @@ def _load_feature_frame(path: Path, feature_cols: list[str]) -> pd.DataFrame:
 
     missing = [col for col in feature_cols if col not in df.columns]
     if missing:
-        raise ValueError(
-            f"{path.name} is missing required feature columns: {missing}"
-        )
+        raise ValueError(f"{path.name} is missing required feature columns: {missing}")
 
     return df[feature_cols].copy()
 

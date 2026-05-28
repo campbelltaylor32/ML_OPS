@@ -105,10 +105,43 @@ All 10 rubric items verified and confirmed compliant:
 1. ✅ Dataset with outcome variable (`Average_Score`, 1 000 records)
 2. ✅ Train/test split (fixed-seed, contract-validated)
 3. ✅ Metrics defined (RMSE, MAE, R², risk_accuracy, risk_F1, PSI)
-4. ✅ AutoML pipeline (FLAML + H2O + Baseline + Top-5, MLflow-tracked, DVC-managed)
+4. ✅ AutoML pipeline (FLAML + Baseline + Top-5, MLflow-tracked, DVC-managed)
 5. ✅ Model deployed (FastAPI + Streamlit + Docker Compose)
 6. ✅ Monitoring + dashboard (PSI + Evidently Cloud + Streamlit Monitoring tab)
 7. ✅ Original test data validated against deployed model
 8. ✅ Modified test set script (`make_modified_test.py`, 4 features changed)
 9. ✅ Modified data run against model; delta metrics + PSI drift verified in monitoring
 10. ✅ Presentation structure complete including team member responsibilities
+
+---
+
+## Goal C — Docker-First Consolidation & CI/CD — 2026-05-28
+
+**Audit complete.** Plan approved. Implementing below.
+
+### Consolidation (single DAG source of truth)
+- [x] Audit repo for overlapping pipeline runners, dead scripts, stale docs — 2026-05-28
+- [x] Add `eda` stage to `dvc.yaml` so `dvc repro` regenerates `reports/figures/` — 2026-05-28
+- [x] Change `docker-compose.yml` `pipeline` service command: `bash run_all.sh` → `dvc repro`; drop `mem_limit: 6g` / H2O comment — 2026-05-28
+- [x] Update `run_all.sh` header to note `dvc repro` is canonical — 2026-05-28
+- [x] Delete `scripts/ci_pipeline.sh` (replaced by `dvc repro` in CI) — 2026-05-28
+
+### Dead-code & stale-config removal
+- [x] Delete `src/train_automl.py` (unreferenced duplicate of FLAML path); inline `build_preprocessor` into `automl_benchmark.py` — 2026-05-28
+- [x] Delete `pytest.ini`; add `pythonpath = ["."]` to `[tool.pytest.ini_options]` in `pyproject.toml` — 2026-05-28
+- [x] Strip all H2O references from `README.md` (team table, Pillar 3 table, results table, folder structure, `uv sync --extra h2o`) — 2026-05-28
+- [x] Remove `train_automl` command line from `CLAUDE.md` — 2026-05-28
+
+### Docker verify surface
+- [x] Add `test` profile service to `docker-compose.yml` (`uv run python -m pytest -q` inside image) — 2026-05-28
+- [x] Add `scripts/verify_docker.sh` — canonical one-liner verify loop (pipeline → test → smoke) — 2026-05-28
+
+### GitHub Actions (complete MLOps CI/CD)
+- [x] Rewrite `ci.yml`: two jobs — `lint` (ruff) + `build-test` (Docker-first: `dvc repro` + pytest + smoke inside image) — 2026-05-28
+- [x] Add `publish.yml`: build + push to `ghcr.io/campbelltaylor32/ml_ops` on `main` push / tags — 2026-05-28
+- [x] Add `drift.yml`: weekly cron + `workflow_dispatch` — runs monitoring inside image, uploads report artifact — 2026-05-28
+- [x] Add `ruff` to `pyproject.toml` dev deps + `[tool.ruff]` config; regenerate `uv.lock` — 2026-05-28
+
+### Docs
+- [x] Update `README.md`: Docker-first run section, GHCR pull instructions, remove H2O, fix folder tree — 2026-05-28
+- [x] Update `CLAUDE.md`: remove `train_automl`, note `dvc repro` canonical, `ci_pipeline.sh` gone, stage count → 10 — 2026-05-28

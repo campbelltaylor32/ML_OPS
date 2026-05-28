@@ -1,0 +1,38 @@
+name: Drift monitoring — weekly re-run
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # every Monday 06:00 UTC
+  workflow_dispatch:        # also runnable manually from the Actions tab
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pull latest image from GHCR
+        run: docker pull ghcr.io/${{ github.repository }}:latest
+
+      - name: Run monitoring stages inside image
+        run: |
+          docker run --rm \
+            -v "$(pwd):/app" \
+            -e EVIDENTLY_API_TOKEN="${{ secrets.EVIDENTLY_API_TOKEN }}" \
+            -e EVIDENTLY_PROJECT_ID="${{ secrets.EVIDENTLY_PROJECT_ID }}" \
+            -e EVIDENTLY_CLOUD_URL="https://app.evidently.cloud" \
+            ghcr.io/${{ github.repository }}:latest \
+            sh -c "uv run python -m src.monitoring && uv run python -m src.monitoring_evidently"
+
+      - name: Upload drift report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-report-${{ github.run_id }}
+          path: |
+            reports/monitoring/evidently_report.html
+            reports/monitoring/drift_report.json
+          retention-days: 30

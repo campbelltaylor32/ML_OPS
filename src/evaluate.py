@@ -12,16 +12,23 @@ Metric definition (assignment step 3):
 
 Run:  python -m src.evaluate
 """
+
 import json
 
 import joblib
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.metrics import (mean_absolute_error, mean_squared_error,
-                             r2_score, accuracy_score, f1_score)
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    mean_absolute_error,
+    mean_squared_error,
+    r2_score,
+)
 
 from src import config
 
@@ -57,8 +64,11 @@ def evaluate():
     ax.scatter(y, preds, s=14, alpha=0.4, color="#4C72B0")
     lims = [min(y.min(), preds.min()), max(y.max(), preds.max())]
     ax.plot(lims, lims, "--", color="#C44E52", label="perfect prediction")
-    ax.set(title="Predicted vs Actual Performance Score (test set)",
-           xlabel="Actual", ylabel="Predicted")
+    ax.set(
+        title="Predicted vs Actual Performance Score (test set)",
+        xlabel="Actual",
+        ylabel="Predicted",
+    )
     ax.legend()
     fig.tight_layout()
     fig.savefig(config.FIGURES_DIR / "07_pred_vs_actual.png", bbox_inches="tight")

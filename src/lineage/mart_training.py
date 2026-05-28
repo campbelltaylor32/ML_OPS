@@ -3,6 +3,7 @@ Stage 3 — Intermediate → Mart
 Produces analytics-ready train and test parquets using the fixed-seed split.
 Writes data/marts/student_training.parquet and student_serving.parquet
 """
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 

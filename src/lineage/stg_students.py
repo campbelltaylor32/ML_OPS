@@ -3,6 +3,7 @@ Stage 1 — Raw → Staging
 1:1 with the raw CSV; light hygiene only (no feature dropping, no target removal).
 Writes data/staging/stg_students.parquet
 """
+
 import pandas as pd
 
 from src import config

@@ -7,8 +7,11 @@ slides of the presentation and help justify the leakage decision in config.py.
 
 Run:  python -m src.eda
 """
+
 import json
+
 import matplotlib
+
 matplotlib.use("Agg")  # headless backend so it works on any machine / CI
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -37,10 +40,17 @@ def run_eda():
     # --- 1. Target distribution -------------------------------------------- #
     fig, ax = plt.subplots(figsize=(7, 4))
     ax.hist(df[config.TARGET], bins=30, color="#4C72B0", edgecolor="white")
-    ax.axvline(config.RISK_THRESHOLD, color="#C44E52", linestyle="--",
-               label=f"At-Risk threshold (<{config.RISK_THRESHOLD:.0f})")
-    ax.set(title="Distribution of Performance Score (Average_Score)",
-           xlabel="Performance Score", ylabel="Number of students")
+    ax.axvline(
+        config.RISK_THRESHOLD,
+        color="#C44E52",
+        linestyle="--",
+        label=f"At-Risk threshold (<{config.RISK_THRESHOLD:.0f})",
+    )
+    ax.set(
+        title="Distribution of Performance Score (Average_Score)",
+        xlabel="Performance Score",
+        ylabel="Number of students",
+    )
     ax.legend()
     _save(fig, "01_target_distribution.png")
 
@@ -50,34 +60,38 @@ def run_eda():
     fig, ax = plt.subplots(figsize=(7, 4))
     colors = ["#C44E52" if v < 0 else "#55A868" for v in corr.values]
     ax.barh(corr.index, corr.values, color=colors)
-    ax.set(title="Correlation of behavioural features with Performance Score",
-           xlabel="Pearson correlation")
+    ax.set(
+        title="Correlation of behavioural features with Performance Score",
+        xlabel="Pearson correlation",
+    )
     _save(fig, "02_feature_correlation.png")
 
     # --- 3. Study hours vs performance (strongest driver) ------------------ #
     fig, ax = plt.subplots(figsize=(7, 4))
-    ax.scatter(df["Study_Hours_Per_Day"], df[config.TARGET], s=12,
-               alpha=0.4, color="#4C72B0")
-    ax.set(title="Study Hours per Day vs Performance Score",
-           xlabel="Study Hours per Day", ylabel="Performance Score")
+    ax.scatter(df["Study_Hours_Per_Day"], df[config.TARGET], s=12, alpha=0.4, color="#4C72B0")
+    ax.set(
+        title="Study Hours per Day vs Performance Score",
+        xlabel="Study Hours per Day",
+        ylabel="Performance Score",
+    )
     _save(fig, "03_study_vs_score.png")
 
     # --- 4. Stress vs performance ------------------------------------------ #
     fig, ax = plt.subplots(figsize=(7, 4))
-    ax.scatter(df["Stress_Level"], df[config.TARGET], s=12,
-               alpha=0.4, color="#C44E52")
-    ax.set(title="Stress Level vs Performance Score",
-           xlabel="Stress Level (1-10)", ylabel="Performance Score")
+    ax.scatter(df["Stress_Level"], df[config.TARGET], s=12, alpha=0.4, color="#C44E52")
+    ax.set(
+        title="Stress Level vs Performance Score",
+        xlabel="Stress Level (1-10)",
+        ylabel="Performance Score",
+    )
     _save(fig, "04_stress_vs_score.png")
 
     # --- 5. Part-time job impact on study hours (the dataset trade-off) ---- #
     fig, ax = plt.subplots(figsize=(7, 4))
-    groups = [df.loc[df["Part_Time_Job"] == v, "Study_Hours_Per_Day"]
-              for v in ["No", "Yes"]]
+    groups = [df.loc[df["Part_Time_Job"] == v, "Study_Hours_Per_Day"] for v in ["No", "Yes"]]
     ax.boxplot(groups)
     ax.set_xticklabels(["No job", "Part-time job"])
-    ax.set(title="Part-time job vs Study Hours per Day",
-           ylabel="Study Hours per Day")
+    ax.set(title="Part-time job vs Study Hours per Day", ylabel="Study Hours per Day")
     _save(fig, "05_job_vs_study.png")
 
     # --- 6. Categorical summary: mean score by major ----------------------- #
@@ -100,36 +114,59 @@ def run_eda():
     ax.grid(False)  # a grid on top of the cells just adds noise
     for i in range(cmat.shape[0]):
         for j in range(cmat.shape[1]):
-            ax.text(j, i, f"{cmat.iat[i, j]:.2f}", ha="center", va="center",
-                    color="white" if abs(cmat.iat[i, j]) > 0.5 else "black",
-                    fontsize=8)
+            ax.text(
+                j,
+                i,
+                f"{cmat.iat[i, j]:.2f}",
+                ha="center",
+                va="center",
+                color="white" if abs(cmat.iat[i, j]) > 0.5 else "black",
+                fontsize=8,
+            )
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Pearson correlation")
     ax.set(title="Correlation between numeric features")
     _save(fig, "07_feature_correlation_matrix.png")
 
     # --- 8. At-risk rate by major (who needs help, not just mean score) ---- #
-    risk_by_major = (df.assign(_risk=at_risk)
-                       .groupby("Major")["_risk"].mean()
-                       .mul(100).sort_values())
+    risk_by_major = df.assign(_risk=at_risk).groupby("Major")["_risk"].mean().mul(100).sort_values()
     fig, ax = plt.subplots(figsize=(7, 4))
     ax.bar(risk_by_major.index, risk_by_major.values, color="#C44E52")
-    ax.set(title=f"At-Risk rate by Major (score < {config.RISK_THRESHOLD:.0f})",
-           ylabel="At-Risk students (%)")
+    ax.set(
+        title=f"At-Risk rate by Major (score < {config.RISK_THRESHOLD:.0f})",
+        ylabel="At-Risk students (%)",
+    )
     _save(fig, "08_risk_by_major.png")
 
     # --- 9. Study hours vs score, split by at-risk flag -------------------- #
     # Reinforces the threshold decision: shows where the at-risk band sits.
     fig, ax = plt.subplots(figsize=(7, 4))
-    ax.scatter(df.loc[~at_risk, "Study_Hours_Per_Day"],
-               df.loc[~at_risk, config.TARGET], s=12, alpha=0.4,
-               color="#4C72B0", label="On track")
-    ax.scatter(df.loc[at_risk, "Study_Hours_Per_Day"],
-               df.loc[at_risk, config.TARGET], s=12, alpha=0.6,
-               color="#C44E52", label="At-risk")
-    ax.axhline(config.RISK_THRESHOLD, color="#C44E52", linestyle="--",
-               label=f"At-Risk threshold (<{config.RISK_THRESHOLD:.0f})")
-    ax.set(title="Study Hours vs Performance Score (by risk status)",
-           xlabel="Study Hours per Day", ylabel="Performance Score")
+    ax.scatter(
+        df.loc[~at_risk, "Study_Hours_Per_Day"],
+        df.loc[~at_risk, config.TARGET],
+        s=12,
+        alpha=0.4,
+        color="#4C72B0",
+        label="On track",
+    )
+    ax.scatter(
+        df.loc[at_risk, "Study_Hours_Per_Day"],
+        df.loc[at_risk, config.TARGET],
+        s=12,
+        alpha=0.6,
+        color="#C44E52",
+        label="At-risk",
+    )
+    ax.axhline(
+        config.RISK_THRESHOLD,
+        color="#C44E52",
+        linestyle="--",
+        label=f"At-Risk threshold (<{config.RISK_THRESHOLD:.0f})",
+    )
+    ax.set(
+        title="Study Hours vs Performance Score (by risk status)",
+        xlabel="Study Hours per Day",
+        ylabel="Performance Score",
+    )
     ax.legend()
     _save(fig, "09_study_vs_score_by_risk.png")
 
@@ -137,12 +174,10 @@ def run_eda():
     # Chart 5 showed a job costs study hours; this shows whether that actually
     # reads through to the score the model has to predict.
     fig, ax = plt.subplots(figsize=(7, 4))
-    groups = [df.loc[df["Part_Time_Job"] == v, config.TARGET]
-              for v in ["No", "Yes"]]
+    groups = [df.loc[df["Part_Time_Job"] == v, config.TARGET] for v in ["No", "Yes"]]
     ax.boxplot(groups)
     ax.set_xticklabels(["No job", "Part-time job"])
-    ax.set(title="Part-time job vs Performance Score",
-           ylabel="Performance Score")
+    ax.set(title="Part-time job vs Performance Score", ylabel="Performance Score")
     _save(fig, "10_job_vs_score.png")
 
     # --- 11. Distributions of the numeric behavioural features ------------- #
@@ -153,7 +188,7 @@ def run_eda():
     for ax, feat in zip(axes.ravel(), feats):
         ax.hist(df[feat], bins=25, color="#4C72B0", edgecolor="white")
         ax.set(title=feat, ylabel="Count")
-    for ax in axes.ravel()[len(feats):]:  # blank out any unused panels
+    for ax in axes.ravel()[len(feats) :]:  # blank out any unused panels
         ax.set_visible(False)
     fig.suptitle("Distributions of numeric behavioural features", y=1.02)
     _save(fig, "11_numeric_distributions.png")
@@ -181,7 +216,9 @@ def run_eda():
         "top_negative_driver": corr.idxmin(),
         "highest_risk_major": risk_by_major.idxmax(),
         "highest_risk_major_pct": round(float(risk_by_major.max()), 1),
-        "at_risk_pct_part_time": round(float(at_risk[df["Part_Time_Job"] == "Yes"].mean() * 100), 1),
+        "at_risk_pct_part_time": round(
+            float(at_risk[df["Part_Time_Job"] == "Yes"].mean() * 100), 1
+        ),
         "at_risk_pct_no_job": round(float(at_risk[df["Part_Time_Job"] == "No"].mean() * 100), 1),
         "strongest_feature_pair": top_pair,
         "strongest_feature_pair_corr": round(float(top_pair_val), 2),

@@ -16,6 +16,7 @@ HTML report. For an Evidently-based report see src/monitoring_evidently.py.
 
 Run:  python -m src.monitoring
 """
+
 import json
 
 import joblib
@@ -32,7 +33,7 @@ def psi(reference: np.ndarray, current: np.ndarray, bins: int = 10) -> float:
     # Bin edges from reference quantiles (robust to outliers)
     quantiles = np.linspace(0, 100, bins + 1)
     edges = np.unique(np.percentile(ref, quantiles))
-    if len(edges) < 3:                      # near-constant feature
+    if len(edges) < 3:  # near-constant feature
         edges = np.linspace(ref.min(), ref.max() + 1e-9, bins + 1)
     edges[0], edges[-1] = -np.inf, np.inf
     ref_pct = np.histogram(ref, bins=edges)[0] / len(ref)
@@ -51,8 +52,7 @@ def label(score: float) -> str:
     return "major drift"
 
 
-def compute_drift(reference_df: pd.DataFrame, current_df: pd.DataFrame,
-                  model=None) -> dict:
+def compute_drift(reference_df: pd.DataFrame, current_df: pd.DataFrame, model=None) -> dict:
     """Feature-level PSI + optional prediction PSI between two datasets."""
     report = {"features": {}, "summary": {}}
 
@@ -69,9 +69,11 @@ def compute_drift(reference_df: pd.DataFrame, current_df: pd.DataFrame,
     for col in config.CATEGORICAL_FEATURES:
         cats = sorted(set(reference_df[col]) | set(current_df[col]))
         codes = {c: i for i, c in enumerate(cats)}
-        score = psi(reference_df[col].map(codes).values,
-                    current_df[col].map(codes).values,
-                    bins=min(len(cats), 10))
+        score = psi(
+            reference_df[col].map(codes).values,
+            current_df[col].map(codes).values,
+            bins=min(len(cats), 10),
+        )
         report["features"][col] = {"psi": round(score, 4), "status": label(score)}
 
     drifted = [c for c, v in report["features"].items() if v["psi"] >= 0.10]
@@ -98,8 +100,8 @@ def compute_drift(reference_df: pd.DataFrame, current_df: pd.DataFrame,
 def run_monitoring():
     config.ensure_dirs()
     model = joblib.load(config.MODEL_PATH)
-    reference = pd.read_csv(config.TEST_PATH)            # original = reference
-    current = pd.read_csv(config.TEST_MODIFIED_PATH)     # modified = production
+    reference = pd.read_csv(config.TEST_PATH)  # original = reference
+    current = pd.read_csv(config.TEST_MODIFIED_PATH)  # modified = production
 
     report = compute_drift(reference, current, model)
     out = config.MONITORING_DIR / "drift_report.json"
