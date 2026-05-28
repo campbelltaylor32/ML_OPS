@@ -36,5 +36,9 @@ codecarbon==3.2.7
 # AutoML backends (H2O requires JVM 8+; optional — install separately)
 h2o==3.46.0.11
 
+# Data versioning
+dvc==3.55.2
+pathspec==0.12.1
+
 # Testing
 pytest==9.0.3

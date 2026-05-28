@@ -1,0 +1,39 @@
+stages:
+  lineage:
+    cmd: python -m src.lineage.run_lineage
+    deps:
+      - data/raw/student_performance.csv
+      - src/lineage/run_lineage.py
+      - src/lineage/contracts.py
+    outs:
+      - data/staging
+      - data/intermediate
+      - data/marts
+
+  feature_store:
+    cmd: python -m src.feature_store
+    deps:
+      - data/marts
+      - src/feature_store.py
+    outs:
+      - data/feature_store
+
+  automl_benchmark:
+    cmd: python -m src.automl_benchmark --flaml-budget 60
+    deps:
+      - data/feature_store
+      - src/automl_benchmark.py
+      - src/mlflow_utils.py
+    outs:
+      - models/best_model.pkl
+      - models/model_metadata.json
+    params:
+      - params.yaml:
+          - automl.flaml_budget
+
+  monitoring_evidently:
+    cmd: python -m src.monitoring_evidently
+    deps:
+      - data/marts
+      - models/best_model.pkl
+      - src/monitoring_evidently.py
