@@ -289,6 +289,89 @@ bump version in `requirements.txt` → install → run `bash run_all.sh` → `pi
 
 ---
 
+## Error 10 — H2O `verbosity=None` is accepted but suppresses leaderboard output
+
+**Symptom:**
+No per-model progress output from H2O AutoML; the section runs silently beyond the
+`h2o.no_progress()` call. Not an error — this is the desired behavior.
+
+**Root cause:**
+`H2OAutoML(verbosity=None)` suppresses the leaderboard print at the end of training.
+The signature default is `verbosity='warn'`; passing `None` is valid and means "silent".
+
+**Prevention rule:**
+Keep `verbosity=None` when running in pipeline mode (avoids noise). Use `verbosity='warn'`
+or `verbosity='info'` when debugging an H2O training run interactively.
+
+---
+
+## Error 11 — `run_flaml` registered every run to MLflow Model Registry unconditionally
+
+**Symptom:**
+Model Registry accumulated new versions on every `automl_benchmark` run regardless of
+whether FLAML was actually the best model across all regimes.
+
+**Root cause:**
+`mlflow.sklearn.log_model(registered_model_name=...)` inside `run_flaml()` always
+registered FLAML's pipeline, bypassing the multi-regime comparison that happens later
+in `main()`. This meant H2O winning didn't affect which artifact was promoted.
+
+**Fix:**
+1. Removed `registered_model_name` from `mlflow.sklearn.log_model` inside `run_flaml()` —
+   the model artifact is still logged to the run, just not registered.
+2. Added a dedicated `model_selection` MLflow run in `main()` that registers only the
+   winner after all regimes are compared:
+   ```python
+   mlflow.sklearn.log_model(
+       sk_model=best_sklearn["pipeline"],
+       name="model",
+       registered_model_name=config.REGISTERED_MODEL_NAME,
+       input_example=X_train.head(2),
+   )
+   ```
+3. Model metadata now includes `deployed_regime`, `best_overall_regime`, and
+   `all_regimes` so the comparison result is always auditable.
+
+**Prevention rule:**
+Never register a model to the MLflow Model Registry inside an individual regime function.
+Registration is a promotion decision — always make it in the orchestrating `main()` after
+all candidates have been evaluated.
+
+---
+
+## Error 12 — H2O model cannot be serialized as `best_model.pkl` (sklearn Pipeline)
+
+**Symptom:**
+H2O `aml.leader` is a JVM proxy object. `joblib.dump(aml.leader, ...)` would fail or
+produce an unloadable file because the H2O Python client stores references to a live JVM
+process, not in-process Python objects.
+
+**Root cause:**
+The serving layer (`app/inference_api.py`, `app/dashboard.py`) loads `models/best_model.pkl`
+and calls `.predict()` on it as a sklearn-compatible object. H2O models are incompatible
+with this interface.
+
+**Fix:**
+In `main()`, `sklearn_candidates` is restricted to `[baseline_res, flaml_res]` (regimes
+that carry a `"pipeline"` key). H2O participates in the RMSE comparison (`all_scored`)
+to determine `best_overall_regime`, but the **deployed** model is always the best sklearn
+pipeline. Metadata records both:
+```json
+{
+  "deployed_regime": "flaml",
+  "best_overall_regime": "h2o"
+}
+```
+This makes it visible when H2O wins so the team can decide to invest in H2O MOJO export
+or an h2o-wave serving layer as a follow-up.
+
+**Prevention rule:**
+When adding a new AutoML regime, check whether it produces a `joblib`-serializable sklearn
+`Pipeline` before adding it to `sklearn_candidates`. H2O, AutoGluon, and other JVM/native
+backends must stay outside that list until a sklearn-compatible wrapper exists.
+
+---
+
 ## General rules derived from this session
 
 1. **Verify all third-party API signatures before writing code** — one
@@ -309,3 +392,13 @@ bump version in `requirements.txt` → install → run `bash run_all.sh` → `pi
 5. **Lineage contracts run before feature materialisation** — never assume upstream
    parquet is valid; always call `validate_*()` as the first line of any downstream
    module's `main()`.
+
+6. **MLflow model registration is a promotion decision, not a per-run side-effect** —
+   never call `mlflow.sklearn.log_model(registered_model_name=...)` inside individual
+   regime functions. Register only in the orchestrating `main()` after cross-regime
+   comparison.
+
+7. **H2O and other JVM-backed AutoML frameworks cannot be directly serialized as
+   sklearn Pipelines** — always restrict `sklearn_candidates` to regimes that return
+   a `"pipeline"` key; include all regimes in `all_scored` for RMSE comparison only.
+   Record `deployed_regime` vs `best_overall_regime` in metadata so the gap is visible.

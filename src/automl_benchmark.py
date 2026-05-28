@@ -1,10 +1,9 @@
 """
-automl_benchmark.py  --  Baseline vs FLAML vs H2O + latency + top-5 features
+automl_benchmark.py  --  Baseline vs FLAML + latency + top-5 features
 ==============================================================================
 Three regimes, all logged to MLflow:
   1. baseline    — default LightGBM, no tuning
   2. flaml       — FLAML AutoML (reuses train_automl logic)
-  3. h2o         — H2O AutoML (JVM-guarded; skips cleanly if unavailable)
 Also produces a top-5-feature variant via LightGBM importances.
 
 Run:  python -m src.automl_benchmark
@@ -75,10 +74,9 @@ def run_flaml(X_train, y_train, X_test, y_test, time_budget: int = 60) -> Dict[s
 
     pre = build_preprocessor()
     X_tr = pre.fit_transform(X_train)
-    X_te = pre.transform(X_test)
 
     automl = AutoML()
-    with start_tracked_run(f"flaml_automl", tags={"regime": "flaml"}) as run:
+    with start_tracked_run("flaml_automl", tags={"regime": "flaml"}) as run:
         with track_emissions("automl_flaml"):
             t0 = time.perf_counter()
             automl.fit(
@@ -102,95 +100,14 @@ def run_flaml(X_train, y_train, X_test, y_test, time_budget: int = 60) -> Dict[s
             mlflow.sklearn.log_model(
                 sk_model=final_pipe,
                 name="model",
-                registered_model_name=config.REGISTERED_MODEL_NAME,
                 input_example=X_train.head(2),
             )
-            import joblib
-            joblib.dump(final_pipe, config.MODEL_PATH)
-            meta = {
-                "registered_model": config.REGISTERED_MODEL_NAME,
-                "best_algorithm": automl.best_estimator,
-                "features": config.FEATURES,
-                "target": config.TARGET,
-                "risk_threshold": config.RISK_THRESHOLD,
-                "test_metrics": metrics,
-                "mlflow_run_id": run.info.run_id,
-            }
-            config.MODEL_META_PATH.write_text(json.dumps(meta, indent=2))
+            run_id = run.info.run_id
 
     return {"regime": "flaml", "best_algo": automl.best_estimator,
-            **metrics, "train_sec": train_sec, "latency_ms": lat}
+            **metrics, "train_sec": train_sec, "latency_ms": lat,
+            "pipeline": final_pipe, "mlflow_run_id": run_id}
 
-
-def run_h2o(X_train, y_train, X_test, y_test, max_models: int = 5) -> Dict[str, Any]:
-    try:
-        import h2o
-        from h2o.automl import H2OAutoML
-    except ImportError:
-        print("H2O not installed — skipping H2O benchmark.")
-        return {"regime": "h2o", "status": "skipped", "reason": "h2o not installed"}
-
-    import logging
-    for _log in ("py4j", "requests", "urllib3", "h2o"):
-        logging.getLogger(_log).setLevel(logging.ERROR)
-
-    try:
-        h2o.init(nthreads=-1, max_mem_size="2G", verbose=False, log_level="ERRR")
-        h2o.no_progress()  # disable per-call progress bars globally for this session
-
-        train_df = X_train.copy()
-        train_df[config.TARGET] = y_train.values
-        test_df = X_test.copy()
-        test_df[config.TARGET] = y_test.values
-
-        h2o_train = h2o.H2OFrame(train_df)
-        h2o_test = h2o.H2OFrame(test_df)
-        h2o_latency_frame = h2o.H2OFrame(X_test.head(LATENCY_ROWS))
-
-        with start_tracked_run("h2o_automl", tags={"regime": "h2o"}):
-            with track_emissions("automl_h2o"):
-                t0 = time.perf_counter()
-                aml = H2OAutoML(
-                    max_models=max_models,
-                    seed=config.SEED,
-                    nfolds=3,
-                    verbosity=None,
-                )
-                aml.train(y=config.TARGET, training_frame=h2o_train)
-                train_sec = round(time.perf_counter() - t0, 3)
-
-                perf = aml.leader.model_performance(h2o_test)
-                metrics = {
-                    "RMSE": round(float(perf.rmse()), 6),
-                    "MAE": round(float(perf.mae()), 6),
-                    "R2": round(float(perf.r2()), 6),
-                }
-
-                # H2O latency: warm up the JVM bridge once, then take 10 timed samples
-                # (30 repeats × stacked-ensemble overhead stresses the connection)
-                h2o_repeats = 10
-                aml.leader.predict(h2o_latency_frame)  # warm-up
-                times = []
-                for _ in range(h2o_repeats):
-                    t1 = time.perf_counter()
-                    aml.leader.predict(h2o_latency_frame)
-                    times.append(time.perf_counter() - t1)
-                lat = round(float(np.median(times)) * 1000, 3)
-
-                leader_id = aml.leader.model_id  # capture before shutdown closes the connection
-                mlflow.log_params({"max_models": max_models, "leader": leader_id})
-                mlflow.log_metrics({**metrics, "train_sec": train_sec, "latency_ms": lat})
-
-        h2o.cluster().shutdown()
-        return {"regime": "h2o", "leader": leader_id,
-                **metrics, "train_sec": train_sec, "latency_ms": lat}
-    except Exception as exc:
-        print(f"H2O benchmark failed: {exc}")
-        try:
-            h2o.cluster().shutdown()
-        except Exception:
-            pass
-        return {"regime": "h2o", "status": "failed", "reason": str(exc)}
 
 
 def run_top5_variant(X_train, y_train, X_test, y_test) -> Dict[str, Any]:
@@ -235,30 +152,80 @@ def run_top5_variant(X_train, y_train, X_test, y_test) -> Dict[str, Any]:
             **metrics, "train_sec": train_sec, "latency_ms": lat}
 
 
-def main(flaml_budget: int = 60, h2o_models: int = 5) -> None:
+def main(flaml_budget: int = 60) -> None:
+    import joblib
+
     config.ensure_dirs()
     validate_feature_store()
 
     fs = FeatureStore()
     X_train, X_test, y_train, y_test, _ = fs.get_feature_set("v1")
 
-    results = []
-
     print("=== Baseline LightGBM ===")
-    res = run_baseline(X_train, y_train, X_test, y_test)
-    results.append({k: v for k, v in res.items() if k != "pipeline"})
+    baseline_res = run_baseline(X_train, y_train, X_test, y_test)
 
     print("=== FLAML AutoML ===")
-    res = run_flaml(X_train, y_train, X_test, y_test, time_budget=flaml_budget)
-    results.append(res)
-
-    print("=== H2O AutoML ===")
-    res = run_h2o(X_train, y_train, X_test, y_test, max_models=h2o_models)
-    results.append(res)
+    flaml_res = run_flaml(X_train, y_train, X_test, y_test, time_budget=flaml_budget)
 
     print("=== Top-5 Feature Variant ===")
-    res = run_top5_variant(X_train, y_train, X_test, y_test)
-    results.append(res)
+    top5_res = run_top5_variant(X_train, y_train, X_test, y_test)
+
+    # ── Model selection ───────────────────────────────────────────────────────
+    candidates = [r for r in [baseline_res, flaml_res]
+                  if "RMSE" in r and "pipeline" in r]
+    best_sklearn = min(candidates, key=lambda r: r["RMSE"])
+
+    all_scored = [r for r in [baseline_res, flaml_res, top5_res] if "RMSE" in r]
+    best_overall = min(all_scored, key=lambda r: r["RMSE"])
+
+    deployed_regime = best_sklearn["regime"]
+    best_overall_regime = best_overall["regime"]
+
+    print(f"\n=== Model Selection ===")
+    print(f"  Best model  : {deployed_regime}  (RMSE={best_sklearn['RMSE']:.4f})")
+    print(f"  Best overall: {best_overall_regime}  (RMSE={best_overall['RMSE']:.4f})")
+
+    joblib.dump(best_sklearn["pipeline"], config.MODEL_PATH)
+    print(f"  Saved -> {config.MODEL_PATH.relative_to(config.ROOT)}")
+
+    # Register best sklearn model to MLflow
+    with mlflow.start_run(run_name="model_selection") as sel_run:
+        mlflow.log_params({
+            "deployed_regime": deployed_regime,
+            "best_overall_regime": best_overall_regime,
+        })
+        mlflow.log_metrics({
+            "deployed_rmse": best_sklearn["RMSE"],
+            "best_overall_rmse": best_overall["RMSE"],
+        })
+        mlflow.sklearn.log_model(
+            sk_model=best_sklearn["pipeline"],
+            name="model",
+            registered_model_name=config.REGISTERED_MODEL_NAME,
+            input_example=X_train.head(2),
+        )
+
+    meta = {
+        "registered_model": config.REGISTERED_MODEL_NAME,
+        "best_algorithm": deployed_regime,          # serving key read by inference_api.py
+        "deployed_regime": deployed_regime,
+        "best_overall_regime": best_overall_regime,
+        "features": config.FEATURES,
+        "target": config.TARGET,
+        "risk_threshold": config.RISK_THRESHOLD,
+        "deployed_metrics": {k: v for k, v in best_sklearn.items()
+                             if k not in ("pipeline", "regime")},
+        "all_regimes": [
+            {k: v for k, v in r.items() if k not in ("pipeline",)}
+            for r in [baseline_res, flaml_res, top5_res]
+        ],
+        "mlflow_run_id": sel_run.info.run_id,
+    }
+    config.MODEL_META_PATH.write_text(json.dumps(meta, indent=2))
+
+    # ── Benchmark report ──────────────────────────────────────────────────────
+    results = [{k: v for k, v in r.items() if k not in ("pipeline",)}
+               for r in [baseline_res, flaml_res, top5_res]]
 
     config.AUTOML_DIR.mkdir(parents=True, exist_ok=True)
     out = config.AUTOML_DIR / "benchmark.json"
@@ -293,6 +260,5 @@ if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--flaml-budget", type=int, default=60)
-    ap.add_argument("--h2o-models", type=int, default=5)
     args = ap.parse_args()
-    main(flaml_budget=args.flaml_budget, h2o_models=args.h2o_models)
+    main(flaml_budget=args.flaml_budget)

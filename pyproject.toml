@@ -41,13 +41,5 @@ dependencies = [
     "pytest==9.0.3",
 ]
 
-[project.optional-dependencies]
-# H2O requires JVM 8+. Install locally with: uv sync --extra h2o
-h2o = ["h2o==3.46.0.11"]
-
-[tool.uv]
-# Exclude h2o from the default Docker/CI sync (no JVM in slim images).
-# The automl_benchmark already skips H2O gracefully when it's absent.
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]

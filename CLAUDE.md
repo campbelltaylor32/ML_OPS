@@ -24,7 +24,6 @@ Never spawn an Explore agent or run a grep/Read loop when 1–2 codegraph calls 
 ```bash
 # Environment setup (uv — installs all deps from uv.lock)
 uv sync                           # create/update .venv
-uv sync --extra h2o               # also install H2O (requires JVM 8+)
 
 # Full enhanced pipeline (11 steps: lineage → features → experiments → automl → evaluate → monitor)
 bash run_all.sh
@@ -33,7 +32,7 @@ bash run_all.sh
 uv run python -m src.lineage.run_lineage               # Lineage: Raw→Staging→Intermediate→Marts + diagram
 uv run python -m src.feature_store                     # Feature Store: materialise v1 + v2
 uv run python -m src.experiment                        # Experiment grid: feat×hparams + CodeCarbon
-uv run python -m src.automl_benchmark --flaml-budget 60 # AutoML: Baseline/FLAML/H2O + latency + top-5
+uv run python -m src.automl_benchmark --flaml-budget 60 # AutoML: Baseline/FLAML + latency + top-5
 uv run python -m src.eda                               # EDA charts -> reports/figures/
 uv run python -m src.preprocessing                     # CSV-compat train/test split -> data/processed/
 uv run python -m src.train_automl --time-budget 60     # Standalone FLAML AutoML + MLflow tracking
@@ -67,7 +66,7 @@ raw CSV
   └─[lineage/run_lineage.py]──▶ data/staging/ → data/intermediate/ → data/marts/
        └─[feature_store.py]──▶ data/feature_store/{v1,v2}/
             └─[experiment.py]──▶ MLflow runs (feat×hparams, CodeCarbon emissions)
-                 └─[automl_benchmark.py]──▶ Baseline/FLAML/H2O + latency + top-5 → models/best_model.pkl
+                 └─[automl_benchmark.py]──▶ Baseline/FLAML + latency + top-5 → models/best_model.pkl
                       └─[monitoring.py + monitoring_evidently.py]──▶ PSI + Evidently reports
 ```
 
@@ -95,7 +94,6 @@ and registers it. `app/` feeds raw rows — preprocessing is baked into the pipe
 - **`data/processed/`, `data/staging/`, `data/intermediate/`, `data/marts/`, `data/feature_store/`, `reports/` are all generated** — do not commit them. Run `bash run_all.sh` to regenerate.
 - **Dependency pinning — two-file strategy:** `requirements.txt` holds pinned direct deps (`==`); `requirements.lock` is the full `pip freeze` for exact transitive reproduction. Always install from `requirements.lock` for a reproducible env. After any version bump: update `requirements.txt`, run `bash run_all.sh`, then `pip freeze > requirements.lock`. Never use `>=` ranges in `requirements.txt` — the evidently 0.6/0.7 API breakage in `monitoring_evidently.py` is the canonical example of why.
 - **Evidently Cloud credentials live in `.env`** — copy `.env.example` → `.env` and fill in `EVIDENTLY_API_TOKEN` + `EVIDENTLY_PROJECT_ID`. `src/config.py` auto-loads it via `python-dotenv`. `.env` is gitignored; never commit it. Local HTML is always written regardless of token.
-- **H2O is optional** — requires JVM 8+. Install with `pip install h2o`. The benchmark skips cleanly without it.
 
 ## Data & Versioning (DVC)
 
@@ -150,9 +148,7 @@ Wait for user approval of `IMPLEMENTATION_PLAN.md` before making any edits to `s
   - `evidently.Report`: parameter is `metrics=`, NOT `items=` (changed in 0.7.x)
   - `evidently.ui.workspace.CloudWorkspace`: import from `evidently.ui.workspace`, NOT `.workspace.cloud`
 - **Every new `import <pkg>` must appear in both `pyproject.toml` and `requirements.txt`** in the same change, then regenerate with `uv lock && uv sync`.
-- **Optional heavy deps (H2O, Evidently Cloud, CodeCarbon) must be wrapped** in `try/except ImportError` and skip gracefully — never let them crash the core pipeline.
+- **Optional heavy deps (Evidently Cloud, CodeCarbon) must be wrapped** in `try/except ImportError` and skip gracefully — never let them crash the core pipeline.
 - **`ColumnTransformer` drops feature names** — if downstream code needs named features (importance, SHAP), add `.set_output(transform="pandas")` to the transformer (sklearn ≥ 1.2).
 - **`src/lineage/contracts.py` guards must be called** at the top of any module that reads a downstream artifact — do not assume upstream validity.
 - **CodeCarbon log level must be set after import, not before** — codecarbon's `external/logger.py` resets the logger to INFO on import, overriding any pre-import suppression. Set `logging.getLogger("codecarbon").setLevel(logging.ERROR)` inside `track_emissions`, after the `from codecarbon import ...` line (lessons_learned.md #6).
-- **H2O model attributes must be captured before `h2o.cluster().shutdown()`** — `aml.leader.model_id` and all H2O proxy attributes make live HTTP calls to the JVM. Capture them to local variables before shutdown; after shutdown they raise `H2OConnectionError` (lessons_learned.md #7).
-- **Call `h2o.no_progress()` immediately after `h2o.init()`** — without it, stacked ensemble prediction loops generate hundreds of progress bars that flood output (lessons_learned.md #7).
