@@ -11,6 +11,11 @@ This is the screen to record for the video demo (assignment step 11).
 
 Run:  streamlit run app/dashboard.py
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 import json
 
 import joblib
