@@ -162,6 +162,78 @@ Cross-reference the output against `requirements.txt`.
 
 ---
 
+---
+
+## Error 6 — CodeCarbon "Multiple instances" warning not silenced by `log_level` parameter
+
+**Error (warning):**
+```
+[codecarbon WARNING @ HH:MM:SS] Multiple instances of codecarbon are allowed to run at the same time.
+```
+
+**Root cause:**
+`EmissionsTracker.__init__` emits the warning at **line 310** of `emissions_tracker.py`.
+The `log_level` parameter (passed to the constructor) is applied at **line 390** via
+`set_logger_level()` — *after* the warning already fired.  Passing `log_level="error"`
+therefore has no effect on this specific warning.
+
+Additionally, `codecarbon/external/logger.py` runs `set_logger_level()` with the
+default "INFO" during module import, which resets any suppression set *before* the
+import.
+
+**Fix:**
+Set `logging.getLogger("codecarbon").setLevel(logging.ERROR)` **inside the context
+manager, after the `from codecarbon import EmissionsTracker` line, and before
+`EmissionsTracker(...)` is instantiated**:
+```python
+from codecarbon import EmissionsTracker
+import logging
+logging.getLogger("codecarbon").setLevel(logging.ERROR)  # override post-import reset
+tracker = EmissionsTracker(...)
+```
+
+**Prevention rule:**
+For any library that configures Python's `logging` during its own import (CodeCarbon,
+Evidently, H2O), always set `logging.getLogger("<pkg>").setLevel(...)` AFTER the
+import statement, not before. Setting it before is silently overridden.
+
+---
+
+## Error 7 — H2O `aml.leader.model_id` accessed after `h2o.cluster().shutdown()`
+
+**Error:**
+```
+h2o.exceptions.H2OConnectionError: Connection was closed, and can no longer be used.
+  File "src/automl_benchmark.py", line N, in run_h2o
+      return {"regime": "h2o", "leader": aml.leader.model_id, ...}
+```
+
+**Root cause:**
+In `run_h2o`, `h2o.cluster().shutdown()` was called on the line immediately before
+the `return` statement. `aml.leader` is a lazy H2O property — accessing `.model_id`
+makes an HTTP request to the H2O server. After `shutdown()`, the server is gone and
+the request fails with a connection error.
+
+The same `aml.leader.model_id` was accessed earlier (inside the `with` block for
+`mlflow.log_params`) where it worked correctly because the server was still running.
+
+**Fix:**
+Capture any H2O model attributes that will be used in the return value **before**
+calling `h2o.cluster().shutdown()`:
+```python
+leader_id = aml.leader.model_id  # capture while connection is live
+h2o.cluster().shutdown()
+return {"regime": "h2o", "leader": leader_id, ...}
+```
+
+**Prevention rule:**
+Any attribute access on an H2O object (`H2OModel`, `H2OFrame`, `H2OAutoML.leader`)
+that requires a network round-trip to the JVM server must happen **before**
+`h2o.cluster().shutdown()`. After shutdown, all H2O Python proxies are dead handles.
+Prefer capturing all values inside the `with` block or before the shutdown line.
+
+---
+
 ## General rules derived from this session
 
 1. **Verify all third-party API signatures before writing code** — one

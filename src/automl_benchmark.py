@@ -119,8 +119,14 @@ def run_h2o(X_train, y_train, X_test, y_test, max_models: int = 5) -> Dict[str, 
         print("H2O not installed — skipping H2O benchmark.")
         return {"regime": "h2o", "status": "skipped", "reason": "h2o not installed"}
 
+    import logging
+    for _log in ("py4j", "requests", "urllib3", "h2o"):
+        logging.getLogger(_log).setLevel(logging.ERROR)
+
     try:
-        h2o.init(nthreads=-1, max_mem_size="2G", verbose=False)
+        h2o.init(nthreads=-1, max_mem_size="2G", verbose=False, log_level="ERRR")
+        h2o.no_progress()  # disable per-call progress bars globally for this session
+
         train_df = X_train.copy()
         train_df[config.TARGET] = y_train.values
         test_df = X_test.copy()
@@ -128,6 +134,7 @@ def run_h2o(X_train, y_train, X_test, y_test, max_models: int = 5) -> Dict[str, 
 
         h2o_train = h2o.H2OFrame(train_df)
         h2o_test = h2o.H2OFrame(test_df)
+        h2o_latency_frame = h2o.H2OFrame(X_test.head(LATENCY_ROWS))
 
         with start_tracked_run("h2o_automl", tags={"regime": "h2o"}):
             with track_emissions("automl_h2o"):
@@ -138,28 +145,33 @@ def run_h2o(X_train, y_train, X_test, y_test, max_models: int = 5) -> Dict[str, 
                     nfolds=3,
                     verbosity=None,
                 )
-                aml.train(
-                    y=config.TARGET,
-                    training_frame=h2o_train,
-                )
+                aml.train(y=config.TARGET, training_frame=h2o_train)
                 train_sec = round(time.perf_counter() - t0, 3)
 
                 perf = aml.leader.model_performance(h2o_test)
-                rmse = float(perf.rmse())
-                mae = float(perf.mae())
-                r2 = float(perf.r2())
-                metrics = {"RMSE": rmse, "MAE": mae, "R2": r2}
+                metrics = {
+                    "RMSE": round(float(perf.rmse()), 6),
+                    "MAE": round(float(perf.mae()), 6),
+                    "R2": round(float(perf.r2()), 6),
+                }
 
-                t_lat = time.perf_counter()
-                for _ in range(LATENCY_REPEATS):
-                    aml.leader.predict(h2o.H2OFrame(X_test.head(LATENCY_ROWS)))
-                lat = round((time.perf_counter() - t_lat) / LATENCY_REPEATS * 1000, 3)
+                # H2O latency: warm up the JVM bridge once, then take 10 timed samples
+                # (30 repeats × stacked-ensemble overhead stresses the connection)
+                h2o_repeats = 10
+                aml.leader.predict(h2o_latency_frame)  # warm-up
+                times = []
+                for _ in range(h2o_repeats):
+                    t1 = time.perf_counter()
+                    aml.leader.predict(h2o_latency_frame)
+                    times.append(time.perf_counter() - t1)
+                lat = round(float(np.median(times)) * 1000, 3)
 
-                mlflow.log_params({"max_models": max_models, "leader": aml.leader.model_id})
+                leader_id = aml.leader.model_id  # capture before shutdown closes the connection
+                mlflow.log_params({"max_models": max_models, "leader": leader_id})
                 mlflow.log_metrics({**metrics, "train_sec": train_sec, "latency_ms": lat})
 
         h2o.cluster().shutdown()
-        return {"regime": "h2o", "leader": aml.leader.model_id,
+        return {"regime": "h2o", "leader": leader_id,
                 **metrics, "train_sec": train_sec, "latency_ms": lat}
     except Exception as exc:
         print(f"H2O benchmark failed: {exc}")
