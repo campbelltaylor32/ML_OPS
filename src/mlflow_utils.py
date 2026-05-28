@@ -19,6 +19,19 @@ import mlflow.sklearn
 from src import config
 
 
+def _get_dvc_hash(path: str) -> str:
+    lock = config.ROOT / "dvc.lock"
+    if not lock.exists():
+        return "unknown"
+    import yaml
+    data = yaml.safe_load(lock.read_text()) or {}
+    for stage in (data.get("stages") or {}).values():
+        for out in stage.get("outs", []):
+            if out.get("path") == path:
+                return out.get("md5") or out.get("hash") or "unknown"
+    return "unknown"
+
+
 def setup_mlflow(experiment: str = config.MLFLOW_EXPERIMENT) -> None:
     mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
     mlflow.set_experiment(experiment)

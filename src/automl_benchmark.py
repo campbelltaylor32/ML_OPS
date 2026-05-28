@@ -27,7 +27,7 @@ from src import config
 from src.evaluate import regression_metrics
 from src.feature_store import FeatureStore
 from src.lineage.contracts import validate_feature_store
-from src.mlflow_utils import start_tracked_run, track_emissions
+from src.mlflow_utils import start_tracked_run, track_emissions, _get_dvc_hash
 from src.train_automl import build_preprocessor
 
 LATENCY_ROWS = 200
@@ -97,6 +97,7 @@ def run_flaml(X_train, y_train, X_test, y_test, time_budget: int = 60) -> Dict[s
             lat = _measure_latency(final_pipe, X_test.head(LATENCY_ROWS))
 
             mlflow.log_params({"best_algo": automl.best_estimator, "time_budget": time_budget})
+            mlflow.log_param("dvc_data_hash", _get_dvc_hash("data/feature_store"))
             mlflow.log_metrics({**metrics, "train_sec": train_sec, "latency_ms": lat})
             mlflow.sklearn.log_model(
                 sk_model=final_pipe,
