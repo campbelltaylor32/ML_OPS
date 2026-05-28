@@ -1,4 +1,4 @@
-# 🎓 Student Performance Risk Monitoring System
+# Student Performance Risk Monitoring System
 
 An end-to-end **Machine Learning Operations (MLOps)** project that predicts a
 student's **Performance Score** from demographic, background, and behavioural
@@ -6,9 +6,6 @@ features, and flags students who may be **At Risk** so academic advisors can
 intervene early. It demonstrates the full MLOps lifecycle on easy local tools:
 EDA → reproducible split → AutoML training with experiment tracking → model
 registry → deployment → monitoring → drift validation.
-
-> **GitHub:** `https://github.com/<your-org>/student-performance-mlops`
-> _(replace with your repo URL before the presentation — required on the slides)_
 
 ---
 
@@ -137,10 +134,6 @@ selected **XGBoost**.
 | **% flagged At Risk** | ~14% | ~70% | ▲ +56 pts |
 | **Prediction drift (PSI)** | — | ~3.97 (**major drift**) | detected |
 
-> Your exact numbers will vary slightly per AutoML run, but the **direction** is
-> always the same: the stress scenario lowers predicted scores, degrades the
-> metrics, and triggers major drift in the monitor — the observable change the
-> assignment requires.
 
 ## 16. How to compare original vs changed results
 1. `python -m src.batch_inference` writes `reports/metrics_comparison.json`
@@ -153,32 +146,3 @@ selected **XGBoost**.
    PSI drift table. The interpretation: degraded behaviour (less study, more
    stress, less sleep, lower attendance) → lower predicted scores → more at-risk
    flags → the monitor catches the input drift before anyone sees real grades.
-
----
-
-## 20. Assignment requirement → file/artifact mapping
-| # | Requirement | Where it is satisfied |
-|---|---|---|
-| 1 | Dataset with an outcome variable | `data/raw/student_performance.csv`; target `Average_Score` (`src/config.py`) |
-| 2 | Split into train/test | `src/preprocessing.py` → `data/processed/train.csv`, `test.csv` |
-| 3 | Define an evaluation metric | RMSE (primary), MAE, R² in `src/evaluate.py` |
-| 4 | Pipeline to train the model | `src/train_automl.py` with **MLflow** tracking; `run_all.sh` orchestrates |
-| 5 | AutoML to select a strong model | **FLAML** in `src/train_automl.py` (chose XGBoost) |
-| 6 | Deploy for inference | `app/inference_api.py` (FastAPI) + `app/dashboard.py` (Streamlit) |
-| 7 | Model monitoring + dashboard | `src/monitoring.py` (+ optional Evidently) → Monitoring tab in `app/dashboard.py` |
-| 8 | Use test data with deployed model + validate | `src/batch_inference.py` → `reports/metrics_comparison.json` |
-| 9 | Change ≥2 feature values in test set | `src/make_modified_test.py` (changes 4 features) |
-| 10 | Use changed test data + validate again | `src/batch_inference.py` + `src/monitoring.py` on `test_modified.csv` |
-| 11 | Presentation + video demo of steps 7 & 9 | `PRESENTATION.md` (outline, slides, video script) |
-
----
-
-## Notes
-- **Why FLAML over PyCaret?** Fewer/lighter dependencies and no version
-  conflicts — more reliable for a quick local class demo. Same AutoML outcome.
-- **Why a built-in PSI monitor *and* optional Evidently?** The PSI monitor has
-  zero heavy dependencies so the demo never breaks; Evidently is included as an
-  industry-standard alternative (`src/monitoring_evidently.py`) if you want a
-  polished HTML report.
-- See **`PRESENTATION.md`** for the 10-minute outline, slide-by-slide content,
-  the video demo script, and the team responsibility template.
