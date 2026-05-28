@@ -1,7 +1,7 @@
 # Student Performance Risk Monitoring System
 
 [![CI](https://github.com/campbelltaylor32/ML_OPS/actions/workflows/ci.yml/badge.svg)](https://github.com/campbelltaylor32/ML_OPS/actions/workflows/ci.yml)
-[![Publish](https://github.com/campbelltaylor32/ML_OPS/actions/workflows/publish.yml/badge.svg)](https://github.com/campbelltaylor32/ML_OPS/actions/workflows/publish.yml)
+[![Drift](https://github.com/campbelltaylor32/ML_OPS/actions/workflows/drift.yml/badge.svg)](https://github.com/campbelltaylor32/ML_OPS/actions/workflows/drift.yml)
 
 An end-to-end **Machine Learning Operations (MLOps)** project that predicts a
 student's **Performance Score** from demographic, background, and behavioural
