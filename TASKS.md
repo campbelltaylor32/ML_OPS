@@ -145,3 +145,23 @@ All 10 rubric items verified and confirmed compliant:
 ### Docs
 - [x] Update `README.md`: Docker-first run section, GHCR pull instructions, remove H2O, fix folder tree — 2026-05-28
 - [x] Update `CLAUDE.md`: remove `train_automl`, note `dvc repro` canonical, `ci_pipeline.sh` gone, stage count → 10 — 2026-05-28
+
+---
+
+## Goal D — CI/CD Trigger Strategy — handoff
+
+**Problem:** `publish.yml` currently triggers on both `branches: [main]` and `tags: ["v*.*.*"]`, causing two concurrent Docker builds on every push to `main` (CI + Publish run in parallel, wasting build minutes and potentially publishing unverified images).
+
+**Task:** Investigate and plan the right publish trigger strategy before implementing.
+
+### Research questions
+- [x] Should publish run tags-only (`v*.*.*`) — standard release cadence — or should `main` always publish `latest`?
+- [x] If tags-only: what is the right tagging workflow for a course/team project (lightweight vs annotated tags, who tags, when)?
+- [x] If both: should `publish` depend on `ci` passing first (e.g. via `workflow_run` event or merging into one workflow)?
+- [x] Does `drift.yml` need to pull the GHCR image or can it build fresh — and does that affect the trigger decision?
+
+### Decision: Option 3 — Single Workflow
+- [x] Delete `publish.yml` — replaced by `publish` job in `ci.yml`
+- [x] Add `tags: ["v*.*.*"]` to `ci.yml` `on.push` trigger
+- [x] Add `publish` job to `ci.yml` gated by `needs: build-test`, `if: github.event_name == 'push'`
+- [x] `drift.yml` unchanged — pulls `:latest` which is still published after CI passes on main — 2026-05-28
