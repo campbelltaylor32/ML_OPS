@@ -1,3 +1,25 @@
 # Add patterns of files dvc should ignore, which could improve
 # the performance. Learn more at
 # https://dvc.org/doc/user-guide/dvcignore
+
+# MLflow tracking — managed by MLflow, not DVC
+mlflow.db
+mlruns/
+
+# Evidently HTML/JSON reports — generated artifacts, not source data
+reports/monitoring/
+reports/figures/
+reports/*.json
+reports/*.csv
+
+# Python caches
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Virtual env
+.venv/
+venv/
+
+# OS
+.DS_Store

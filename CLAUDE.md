@@ -71,6 +71,52 @@ and registers it. `app/` feeds raw rows — preprocessing is baked into the pipe
 - **Evidently Cloud credentials live in `.env`** — copy `.env.example` → `.env` and fill in `EVIDENTLY_API_TOKEN` + `EVIDENTLY_PROJECT_ID`. `src/config.py` auto-loads it via `python-dotenv`. `.env` is gitignored; never commit it. Local HTML is always written regardless of token.
 - **H2O is optional** — requires JVM 8+. Install with `pip install h2o`. The benchmark skips cleanly without it.
 
+## Data & Versioning (DVC)
+
+**DVC is initialized** (`dvc init` already run). The pipeline is defined in `dvc.yaml` with four stages: `lineage → feature_store → automl_benchmark → monitoring_evidently`.
+
+**DVC commands:**
+```bash
+.venv/bin/dvc repro              # Reproduce full pipeline (skips unchanged stages)
+.venv/bin/dvc status             # Show which stages are stale
+.venv/bin/dvc params diff        # Diff params.yaml changes vs last run
+.venv/bin/dvc dag                # Print the pipeline DAG
+.venv/bin/dvc add data/raw/student_performance.csv  # Track raw data with DVC
+```
+
+**Integration rule — AutoML ↔ MLflow ↔ DVC:**
+- Every `automl_benchmark` run must log the DVC data hash to MLflow: call `mlflow.log_param("dvc_data_hash", _get_dvc_hash("data/feature_store"))` inside `src/automl_benchmark.py` via `src/mlflow_utils.py`.
+- Every update to `data/raw/student_performance.csv` (i.e., `dvc add data/raw/…`) must be followed by `dvc repro` to regenerate lineage → features → model → Evidently drift report. The `monitoring_evidently` stage is a downstream dep of `automl_benchmark` in `dvc.yaml`, so `dvc repro` handles the cascade automatically.
+
+**DVC-tracked paths (do not manually edit):**
+- `data/raw/student_performance.csv.dvc` — raw data pointer (commit this, not the CSV if large)
+- `dvc.lock` — locked hashes after a successful `dvc repro` (commit alongside code changes)
+- `params.yaml` — pipeline hyperparams; `automl.flaml_budget` controls FLAML time budget
+
+**What DVC does NOT track (handled by MLflow or gitignored):**
+- `mlflow.db`, `mlruns/` — MLflow owns these
+- `reports/monitoring/`, `reports/figures/` — generated HTML/PNG outputs; gitignored
+
+## Task & Planning Protocol
+
+**Before modifying any core code**, create `IMPLEMENTATION_PLAN.md` in the project root with:
+1. Task title and motivation
+2. Files to be changed (with line-number anchors where relevant)
+3. Numbered implementation steps
+4. Test/validation plan
+5. Rollback path
+
+Wait for user approval of `IMPLEMENTATION_PLAN.md` before making any edits to `src/`, `app/`, `dvc.yaml`, or `requirements.txt`.
+
+**Task tracking:** `TASKS.md` is the persistent task tracker. Update it at the start and end of every work session. Format: `[ ]` open, `[x]` done, `[~]` in-progress.
+
+**Per-session checklist:**
+1. Read `MEMORY.md` index + relevant memory files
+2. Read `TASKS.md` and mark in-progress items `[~]`
+3. For new tasks: write `IMPLEMENTATION_PLAN.md`, get approval, then implement
+4. After each logical unit: run `.venv/bin/python -m pytest -q` and `dvc status`
+5. End of session: update `TASKS.md`, write new memory files, delete `IMPLEMENTATION_PLAN.md`
+
 ## Anti-patterns and rules (from lessons_learned.md)
 
 - **Never call `pytest` bare** — always use `.venv/bin/python -m pytest -q`. The system pytest resolves a different `src` and will always fail with `ImportError: cannot import name 'config' from 'src'`.
