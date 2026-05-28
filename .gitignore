@@ -29,6 +29,7 @@ reports/*.csv
 
 # OS
 .DS_Store
+powermetrics_log.txt
 
 # NOTE: data/raw/student_performance.csv IS committed (the input dataset).
 !data/raw/student_performance.csv

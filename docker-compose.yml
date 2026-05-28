@@ -1,0 +1,55 @@
+name: student-performance-risk
+
+x-base: &base
+  build: .
+  volumes:
+    - .:/app          # bind-mount so pipeline artifacts persist to host
+  working_dir: /app
+  environment:
+    - PYTHONPATH=/app
+
+services:
+  # ── Run once to build all pipeline artifacts ────────────────────────────────
+  # Usage: docker compose run --rm pipeline
+  pipeline:
+    <<: *base
+    command: bash run_all.sh
+    profiles: [pipeline]   # excluded from `docker compose up`
+
+  # ── Serving stack (start all three with: docker compose up) ─────────────────
+  mlflow:
+    <<: *base
+    command: >
+      mlflow ui
+      --backend-store-uri sqlite:///mlflow.db
+      --host 0.0.0.0
+      --port 5001
+    ports:
+      - "5001:5001"
+
+  api:
+    <<: *base
+    command: >
+      uvicorn app.inference_api:app
+      --host 0.0.0.0
+      --port 8000
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      retries: 5
+      start_period: 15s
+
+  dashboard:
+    <<: *base
+    command: >
+      streamlit run app/dashboard.py
+      --server.port 8501
+      --server.headless true
+      --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy

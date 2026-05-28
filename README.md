@@ -22,11 +22,71 @@ Run `bash serve_demo.sh` to start all apps and print every URL. Or open
 | Streamlit dashboard | http://localhost:8501 | Predict + Monitoring tabs |
 | FastAPI Swagger UI | http://localhost:8000/docs | Interactive inference API |
 | FastAPI health probe | http://localhost:8000/health | Liveness check |
-| MLflow UI | http://localhost:5000 | Experiments + model registry |
+| MLflow UI | http://localhost:5001 | Experiments + model registry |
 | Evidently drift report | `reports/monitoring/evidently_report.html` | Static HTML |
 | AutoML benchmark chart | `reports/automl/accuracy_vs_latency.png` | Static PNG |
 | Lineage DAG | `reports/lineage/lineage_dag.png` | Static PNG |
 | All EDA figures | `reports/figures/` | Static PNGs |
+
+---
+
+## End-to-End Run & Demo Guide
+
+Follow these steps in order for the recorded demo. Everything runs locally — no cloud account needed.
+
+### Step 1 — Setup (once)
+
+```bash
+uv sync                       # creates .venv and installs all deps from uv.lock
+cp .env.example .env          # fill in EVIDENTLY_API_TOKEN if you have one (optional)
+```
+
+### Step 2 — Run the full pipeline
+
+```bash
+bash run_all.sh
+```
+
+This runs all 11 steps in order: EDA → lineage → preprocessing → feature store →
+experiment grid → AutoML benchmark → evaluate → build modified test set → batch
+inference → PSI monitoring → Evidently drift report.
+
+Expected output: `Done.` with the three serving commands printed at the end.
+Artifacts generated: `models/best_model.pkl`, `reports/`, `data/marts/`,
+`data/feature_store/`, `data/processed/`.
+
+### Step 3 — Verify everything passes
+
+```bash
+uv run python -m pytest -q
+```
+
+All 17 guard tests (G1–G4) should pass. If any fail, re-run `bash run_all.sh` first.
+
+### Step 4 — Launch all services
+
+```bash
+bash serve_demo.sh
+```
+
+Starts MLflow UI, FastAPI, and Streamlit together and prints every URL. Press
+**Ctrl-C** to stop all three at once. Keep this terminal open for the recording.
+
+### Step 5 — Demo walkthrough (record in this order)
+
+| # | What to show | Where |
+|---|---|---|
+| 1 | **EDA** — target distribution, feature correlations | `reports/figures/` (open PNGs) |
+| 2 | **Pipeline + AutoML results** — experiment runs, registered model | http://localhost:5001 → Experiments → student_performance_model |
+| 3 | **Live inference (original data)** — predict a student, see score + risk flag | http://localhost:8501 → Predict tab |
+| 4 | **Monitoring — original test set** — RMSE, R², mean predicted score | http://localhost:8501 → Monitoring tab (top metrics) |
+| 5 | **Changed test set results** — same tab shows modified set metrics side-by-side, PSI drift table | http://localhost:8501 → Monitoring tab (scroll down) |
+| 6 | **Evidently drift report** — DataDrift + DataSummary HTML | `reports/monitoring/evidently_report.html` (open in browser) |
+| 7 | **REST API** — hit `/predict` live via Swagger | http://localhost:8000/docs → POST /predict → Try it out |
+| 8 | **All URLs at a glance** | `app/serve_index.html` (open in browser) |
+
+> **Tip:** open `app/serve_index.html` first and use it as your navigation hub
+> throughout the recording — every link is one click from there.
 
 ---
 
@@ -170,16 +230,8 @@ student-performance-mlops/
 ## 6. Local setup
 
 ```bash
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-
-# Exact reproduction (recommended) — installs every transitive dep at a pinned version
-pip install -r requirements.lock
-
-# Direct deps only — resolves transitive deps fresh (may pull newer sub-deps)
-# pip install -r requirements.txt
-
-# Optional: install H2O for the H2O AutoML benchmark (requires Java 8+)
-# pip install h2o
+uv sync              # creates .venv at project root; installs all deps from uv.lock
+uv sync --extra h2o  # also install H2O (requires JVM 8+)
 
 # Evidently Cloud credentials (optional — local HTML report always works without them)
 cp .env.example .env          # then open .env and fill in your token + project ID
@@ -191,14 +243,15 @@ cp .env.example .env          # then open .env and fill in your token + project 
 ### Dependency files
 | File | Purpose |
 |---|---|
-| `requirements.txt` | Pinned direct dependencies — edit this when upgrading a package |
-| `requirements.lock` | Full `pip freeze` snapshot — guarantees byte-for-byte reproducible installs |
+| `pyproject.toml` | Direct dependencies with pinned versions — edit when upgrading a package |
+| `uv.lock` | Full dependency lock (all transitive deps) — guarantees exact reproduction |
 
-To upgrade a package: bump its version in `requirements.txt`, install, run the full test suite, then regenerate the lock file:
+To upgrade a package: bump its version in `pyproject.toml`, then regenerate the lock:
 ```bash
-pip install -r requirements.txt
+uv lock
+uv sync
 bash run_all.sh
-pip freeze > requirements.lock
+uv run python -m pytest -q
 ```
 
 ## 7. Run the whole pipeline (one command)
@@ -209,28 +262,52 @@ bash run_all.sh
 Or run each pillar individually:
 ```bash
 # Pillar 1 — Data Lineage
-python -m src.lineage.run_lineage
+uv run python -m src.lineage.run_lineage
 
 # Pillar 2 — Feature Store + Experiments
-python -m src.feature_store
-python -m src.experiment
+uv run python -m src.feature_store
+uv run python -m src.experiment
 
 # Pillar 3 — AutoML Benchmark
-python -m src.automl_benchmark --flaml-budget 60
+uv run python -m src.automl_benchmark --flaml-budget 60
 
 # Pillar 4 — Monitoring
-python -m src.monitoring
-python -m src.monitoring_evidently
+uv run python -m src.monitoring
+uv run python -m src.monitoring_evidently
 
 # Guard tests
-python -m pytest -q
+uv run python -m pytest -q
 ```
 
 ## 8. Deploy & monitor
 ```bash
-mlflow ui --backend-store-uri sqlite:///mlflow.db   # http://localhost:5000
-streamlit run app/dashboard.py                       # http://localhost:8501
-uvicorn app.inference_api:app --port 8000            # http://localhost:8000/docs
+uv run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5001   # http://localhost:5001
+uv run streamlit run app/dashboard.py                                   # http://localhost:8501
+uv run uvicorn app.inference_api:app --port 8000                        # http://localhost:8000/docs
+```
+
+## 8b. Docker deployment (recommended for reproducible demos)
+
+Requires Docker ≥ 24 + Docker Compose v2.
+
+```bash
+# First run — build pipeline artifacts inside the container (bind-mount writes to host)
+docker compose run --rm pipeline
+
+# Start all three serving services
+docker compose up
+
+# Individual service
+docker compose up api          # FastAPI only (http://localhost:8000/docs)
+docker compose up mlflow       # MLflow UI only (http://localhost:5001)
+docker compose up dashboard    # Streamlit only (http://localhost:8501)
+```
+
+The `pipeline` service (profile: `pipeline`) is excluded from `docker compose up` so it never auto-starts. Run it once to generate `models/best_model.pkl` and all report artifacts before launching the serving stack.
+
+Health endpoint verified by the compose healthcheck:
+```
+GET http://localhost:8000/health → {"status":"ok","model":"xgboost",...}
 ```
 
 ## 9. MLflow tracking setup

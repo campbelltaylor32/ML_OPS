@@ -17,30 +17,39 @@ Never spawn an Explore agent or run a grep/Read loop when 1–2 codegraph calls 
 ## Commands
 
 ```bash
+# Environment setup (uv — installs all deps from uv.lock)
+uv sync                           # create/update .venv
+uv sync --extra h2o               # also install H2O (requires JVM 8+)
+
 # Full enhanced pipeline (11 steps: lineage → features → experiments → automl → evaluate → monitor)
 bash run_all.sh
 
 # Individual pillars
-python -m src.lineage.run_lineage               # Lineage: Raw→Staging→Intermediate→Marts + diagram
-python -m src.feature_store                     # Feature Store: materialise v1 + v2
-python -m src.experiment                        # Experiment grid: feat×hparams + CodeCarbon
-python -m src.automl_benchmark --flaml-budget 60 # AutoML: Baseline/FLAML/H2O + latency + top-5
-python -m src.eda                               # EDA charts -> reports/figures/
-python -m src.preprocessing                     # CSV-compat train/test split -> data/processed/
-python -m src.train_automl --time-budget 60     # Standalone FLAML AutoML + MLflow tracking
-python -m src.evaluate                          # Metrics on original test set
-python -m src.make_modified_test                # Build "academic stress" test set
-python -m src.batch_inference                   # Predict both sets + compare
-python -m src.monitoring                        # PSI drift report
-python -m src.monitoring_evidently              # Evidently DataDrift+DataSummary (+ Cloud if token set)
+uv run python -m src.lineage.run_lineage               # Lineage: Raw→Staging→Intermediate→Marts + diagram
+uv run python -m src.feature_store                     # Feature Store: materialise v1 + v2
+uv run python -m src.experiment                        # Experiment grid: feat×hparams + CodeCarbon
+uv run python -m src.automl_benchmark --flaml-budget 60 # AutoML: Baseline/FLAML/H2O + latency + top-5
+uv run python -m src.eda                               # EDA charts -> reports/figures/
+uv run python -m src.preprocessing                     # CSV-compat train/test split -> data/processed/
+uv run python -m src.train_automl --time-budget 60     # Standalone FLAML AutoML + MLflow tracking
+uv run python -m src.evaluate                          # Metrics on original test set
+uv run python -m src.make_modified_test                # Build "academic stress" test set
+uv run python -m src.batch_inference                   # Predict both sets + compare
+uv run python -m src.monitoring                        # PSI drift report
+uv run python -m src.monitoring_evidently              # Evidently DataDrift+DataSummary (+ Cloud if token set)
 
-# Tests — ALWAYS use venv python, not bare pytest (see lessons_learned.md #4)
-.venv/bin/python -m pytest -q
+# Tests — use uv run (resolves .venv correctly; bare pytest will ImportError on src)
+uv run python -m pytest -q
 
-# Serving
-mlflow ui --backend-store-uri sqlite:///mlflow.db   # http://localhost:5000
-streamlit run app/dashboard.py                       # http://localhost:8501
-uvicorn app.inference_api:app --port 8000            # http://localhost:8000/docs
+# Serving — local
+uv run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5001   # http://localhost:5001
+uv run streamlit run app/dashboard.py                       # http://localhost:8501
+uv run uvicorn app.inference_api:app --port 8000            # http://localhost:8000/docs
+bash serve_demo.sh                                          # all three at once
+
+# Serving — Docker
+docker compose run --rm pipeline    # build all pipeline artifacts (first time)
+docker compose up                   # start mlflow + api + dashboard
 ```
 
 ## Architecture
@@ -126,16 +135,16 @@ Wait for user approval of `IMPLEMENTATION_PLAN.md` before making any edits to `s
 1. Read `MEMORY.md` index + relevant memory files
 2. Read `TASKS.md` and mark in-progress items `[~]`
 3. For new tasks: write `IMPLEMENTATION_PLAN.md`, get approval, then implement
-4. After each logical unit: run `.venv/bin/python -m pytest -q` and `dvc status`
+4. After each logical unit: run `uv run python -m pytest -q` and `uv run dvc status`
 5. End of session: update `TASKS.md`, write new memory files, delete `IMPLEMENTATION_PLAN.md`
 
 ## Anti-patterns and rules (from lessons_learned.md)
 
-- **Never call `pytest` bare** — always use `.venv/bin/python -m pytest -q`. The system pytest resolves a different `src` and will always fail with `ImportError: cannot import name 'config' from 'src'`.
+- **Never call `pytest` bare** — always use `uv run python -m pytest -q`. The system pytest resolves a different `src` and will always fail with `ImportError: cannot import name 'config' from 'src'`.
 - **Verify third-party constructor signatures before use** — run `python -c "import inspect; from pkg import Cls; print(inspect.signature(Cls.__init__))"`. Known traps:
   - `evidently.Report`: parameter is `metrics=`, NOT `items=` (changed in 0.7.x)
   - `evidently.ui.workspace.CloudWorkspace`: import from `evidently.ui.workspace`, NOT `.workspace.cloud`
-- **Every new `import <pkg>` must appear in `requirements.txt`** in the same change.
+- **Every new `import <pkg>` must appear in both `pyproject.toml` and `requirements.txt`** in the same change, then regenerate with `uv lock && uv sync`.
 - **Optional heavy deps (H2O, Evidently Cloud, CodeCarbon) must be wrapped** in `try/except ImportError` and skip gracefully — never let them crash the core pipeline.
 - **`ColumnTransformer` drops feature names** — if downstream code needs named features (importance, SHAP), add `.set_output(transform="pandas")` to the transformer (sklearn ≥ 1.2).
 - **`src/lineage/contracts.py` guards must be called** at the top of any module that reads a downstream artifact — do not assume upstream validity.
