@@ -1,0 +1,184 @@
+# 🎓 Student Performance Risk Monitoring System
+
+An end-to-end **Machine Learning Operations (MLOps)** project that predicts a
+student's **Performance Score** from demographic, background, and behavioural
+features, and flags students who may be **At Risk** so academic advisors can
+intervene early. It demonstrates the full MLOps lifecycle on easy local tools:
+EDA → reproducible split → AutoML training with experiment tracking → model
+registry → deployment → monitoring → drift validation.
+
+> **GitHub:** `https://github.com/<your-org>/student-performance-mlops`
+> _(replace with your repo URL before the presentation — required on the slides)_
+
+---
+
+## 1. Project title
+**Student Performance Risk Monitoring System — Predicting and Monitoring Academic Performance with MLOps**
+
+## 2. Business problem statement (stakeholder language)
+> Academic advisors cannot personally track the workload, sleep, stress, and
+> attendance of every student, so at-risk students are often identified only
+> after grades have already slipped. This project delivers an automated risk
+> monitoring system that predicts each student's performance score from
+> behaviour and background, flags those likely to fall below a passing score,
+> and continuously monitors whether incoming student data has drifted from what
+> the model was trained on. Advisors get an early, data-driven shortlist of
+> students who need support — and the institution gets confidence that the model
+> stays reliable as the student population changes.
+
+## 3. Dataset & target
+- **1,000 student records**, no missing values (`data/raw/student_performance.csv`).
+- **Primary target (regression):** `Average_Score` — the Performance Score, 0–100.
+- **Optional risk flag (classification view):** `At Risk = predicted score < 60`.
+- **Features used (14):**
+  - *Numeric:* Age, Study_Hours_Per_Day, Sleep_Hours_Per_Day, Attendance_Rate, Stress_Level
+  - *Categorical:* Gender, Major, Living_Area, Parent_Education, Scholarship_Status, Part_Time_Job, Extracurricular_Activities, Internet_Access, Exam_Proximity
+- **Deliberately excluded (target leakage):** `Math_Score`, `Science_Score`,
+  `Language_Score`, `History_Score`, `Grade`. `Average_Score` is literally the
+  mean of the four subject scores, so feeding them in would let the model trivially
+  re-average them (R² ≈ 1.0) and teach it nothing useful. `Name` is dropped as a
+  non-predictive identifier. Excluding these forces the model to learn from
+  factors advisors can actually influence (study time, sleep, stress, attendance).
+
+---
+
+## 4. Folder structure
+```
+student-performance-mlops/
+├── data/
+│   ├── raw/student_performance.csv        # input dataset
+│   └── processed/                         # train.csv, test.csv, test_modified.csv (generated)
+├── src/
+│   ├── config.py                          # single source of truth (paths, columns, seed, scenario)
+│   ├── eda.py                             # [2] EDA charts
+│   ├── preprocessing.py                   # [3] clean + train/test split
+│   ├── train_automl.py                    # [4][5] FLAML AutoML + MLflow tracking + registry
+│   ├── evaluate.py                        # [6] metrics on original test set
+│   ├── make_modified_test.py              # [9] build the "academic stress" test set
+│   ├── batch_inference.py                 # [8][10][16] predict + compare original vs modified
+│   ├── monitoring.py                      # [7][12] PSI drift monitor (dependency-free)
+│   └── monitoring_evidently.py            # [7] optional Evidently HTML report
+├── app/
+│   ├── inference_api.py                   # [6] FastAPI deployment (REST)
+│   └── dashboard.py                       # [7][12] Streamlit inference + monitoring dashboard
+├── tests/test_pipeline.py                 # smoke tests (no leakage, range, stress lowers score)
+├── reports/                               # figures/, monitoring/, comparison json+csv (generated)
+├── models/                                # best_model.pkl + model_metadata.json (generated)
+├── mlflow.db / mlruns/                    # MLflow tracking store + artifacts (generated)
+├── run_all.sh                             # one-command end-to-end pipeline
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## 5. Local setup
+```bash
+# 1. (recommended) create a virtual environment
+python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
+
+# 2. install dependencies
+pip install -r requirements.txt
+
+# 3. confirm the dataset is in place
+ls data/raw/student_performance.csv
+```
+
+## 6. Run the whole pipeline (one command)
+```bash
+bash run_all.sh
+```
+Or run each step individually (all are `python -m src.<name>`):
+```bash
+python -m src.eda                       # [2] charts -> reports/figures/
+python -m src.preprocessing             # [3] -> data/processed/train.csv, test.csv
+python -m src.train_automl --time-budget 60   # [4][5] AutoML + MLflow + registry
+python -m src.evaluate                  # [6] metrics on original test set
+python -m src.make_modified_test        # [9] modified "stress" test set
+python -m src.batch_inference           # [8][10] predict on both + compare
+python -m src.monitoring                # [7][12] drift report
+pytest -q                               # smoke tests
+```
+
+## 7. Deploy & monitor
+```bash
+# Experiment tracking + model registry UI
+mlflow ui --backend-store-uri sqlite:///mlflow.db          # http://localhost:5000
+
+# Interactive inference + monitoring dashboard (record THIS for the video demo)
+streamlit run app/dashboard.py                             # http://localhost:8501
+
+# REST API for programmatic inference
+uvicorn app.inference_api:app --port 8000                  # http://localhost:8000/docs
+```
+
+## 8. MLflow tracking setup
+- Tracking store: **local SQLite** (`sqlite:///mlflow.db`) — set in `src/config.py`,
+  which enables the **Model Registry** locally (a pure file store cannot register models).
+- Each training run logs: parameters (time budget, seed, feature count), the
+  AutoML-chosen algorithm + best hyperparameters, test metrics (RMSE/MAE/R²), and
+  the full **preprocessing+model pipeline** as an artifact.
+- The best pipeline is registered as **`student_performance_model`** (versioned).
+- A plain `models/best_model.pkl` is also saved so the app/dashboard serve the
+  model without needing the MLflow server running during the demo.
+
+---
+
+## Results (from a 60-second AutoML run)
+AutoML (FLAML) compared LightGBM, XGBoost, Random Forest, and Extra Trees and
+selected **XGBoost**.
+
+| Metric | Original test set | Modified ("stress") test set | Change |
+|---|---|---|---|
+| **RMSE** | ~3.95 | ~19.6 | ▲ degraded |
+| **MAE** | ~2.85 | ~18.2 | ▲ degraded |
+| **R²** | ~0.86 | ~-2.4 | ▼ degraded |
+| **Mean predicted score** | ~71.2 | ~53.2 | ▼ ~18 points |
+| **% flagged At Risk** | ~14% | ~70% | ▲ +56 pts |
+| **Prediction drift (PSI)** | — | ~3.97 (**major drift**) | detected |
+
+> Your exact numbers will vary slightly per AutoML run, but the **direction** is
+> always the same: the stress scenario lowers predicted scores, degrades the
+> metrics, and triggers major drift in the monitor — the observable change the
+> assignment requires.
+
+## 16. How to compare original vs changed results
+1. `python -m src.batch_inference` writes `reports/metrics_comparison.json`
+   (RMSE/MAE/R²/mean prediction/at-risk % for both sets + the deltas) and
+   `reports/predictions_comparison.csv` (per-student original vs modified prediction).
+2. `python -m src.monitoring` writes `reports/monitoring/drift_report.json`
+   (per-feature PSI + prediction PSI).
+3. The **Monitoring tab** of the Streamlit dashboard shows all of this live:
+   metric deltas, the overlaid prediction-distribution chart, and a colour-coded
+   PSI drift table. The interpretation: degraded behaviour (less study, more
+   stress, less sleep, lower attendance) → lower predicted scores → more at-risk
+   flags → the monitor catches the input drift before anyone sees real grades.
+
+---
+
+## 20. Assignment requirement → file/artifact mapping
+| # | Requirement | Where it is satisfied |
+|---|---|---|
+| 1 | Dataset with an outcome variable | `data/raw/student_performance.csv`; target `Average_Score` (`src/config.py`) |
+| 2 | Split into train/test | `src/preprocessing.py` → `data/processed/train.csv`, `test.csv` |
+| 3 | Define an evaluation metric | RMSE (primary), MAE, R² in `src/evaluate.py` |
+| 4 | Pipeline to train the model | `src/train_automl.py` with **MLflow** tracking; `run_all.sh` orchestrates |
+| 5 | AutoML to select a strong model | **FLAML** in `src/train_automl.py` (chose XGBoost) |
+| 6 | Deploy for inference | `app/inference_api.py` (FastAPI) + `app/dashboard.py` (Streamlit) |
+| 7 | Model monitoring + dashboard | `src/monitoring.py` (+ optional Evidently) → Monitoring tab in `app/dashboard.py` |
+| 8 | Use test data with deployed model + validate | `src/batch_inference.py` → `reports/metrics_comparison.json` |
+| 9 | Change ≥2 feature values in test set | `src/make_modified_test.py` (changes 4 features) |
+| 10 | Use changed test data + validate again | `src/batch_inference.py` + `src/monitoring.py` on `test_modified.csv` |
+| 11 | Presentation + video demo of steps 7 & 9 | `PRESENTATION.md` (outline, slides, video script) |
+
+---
+
+## Notes
+- **Why FLAML over PyCaret?** Fewer/lighter dependencies and no version
+  conflicts — more reliable for a quick local class demo. Same AutoML outcome.
+- **Why a built-in PSI monitor *and* optional Evidently?** The PSI monitor has
+  zero heavy dependencies so the demo never breaks; Evidently is included as an
+  industry-standard alternative (`src/monitoring_evidently.py`) if you want a
+  polished HTML report.
+- See **`PRESENTATION.md`** for the 10-minute outline, slide-by-slide content,
+  the video demo script, and the team responsibility template.
