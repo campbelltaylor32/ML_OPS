@@ -264,6 +264,31 @@ files or Claude Code settings — use `.env` (gitignored) as the canonical local
 
 ---
 
+## Error 9 — Loose `>=` version ranges caused silent API breakage on merge
+
+**Symptom:** After merging remote changes, `monitoring_evidently.py` crashed with
+`ModuleNotFoundError: No module named 'evidently.report'` and
+`AttributeError: 'Report' object has no attribute 'save_html'`.
+
+**Root cause:**
+`requirements.txt` used `evidently>=0.7`, which allowed any 0.7.x install.
+The merged code was written against 0.6.7 import paths (`evidently.report.Report`,
+`evidently.metric_preset.DataQualityPreset`). The local env had `evidently==0.7.21`
+where both import paths and method names had changed. Loose ranges make it impossible
+to know which API surface a contributor was writing against.
+
+**Fix:**
+1. Pin all direct dependencies to exact versions (`==`) in `requirements.txt`.
+2. Commit a full `pip freeze` snapshot as `requirements.lock` for transitive reproducibility.
+3. Install via `pip install -r requirements.lock` for exact environment reproduction.
+
+**Prevention rule:**
+Use `>=` only in library packages (which must stay compatible with their dependents).
+In application projects, always use `==` in `requirements.txt`. The upgrade workflow is:
+bump version in `requirements.txt` → install → run `bash run_all.sh` → `pip freeze > requirements.lock`.
+
+---
+
 ## General rules derived from this session
 
 1. **Verify all third-party API signatures before writing code** — one
