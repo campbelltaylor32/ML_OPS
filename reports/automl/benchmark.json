@@ -1,0 +1,39 @@
+[
+  {
+    "regime": "baseline",
+    "RMSE": 4.702932077847228,
+    "MAE": 3.2956983410604117,
+    "R2": 0.8024588613222337,
+    "train_sec": 0.512,
+    "latency_ms": 2.269
+  },
+  {
+    "regime": "flaml",
+    "best_algo": "xgboost",
+    "RMSE": 4.081719345515044,
+    "MAE": 2.8863883018493652,
+    "R2": 0.8511987924575806,
+    "train_sec": 64.274,
+    "latency_ms": 1.998
+  },
+  {
+    "regime": "h2o",
+    "status": "skipped",
+    "reason": "h2o not installed"
+  },
+  {
+    "regime": "top5",
+    "top5_features": [
+      "Sleep_Hours_Per_Day",
+      "Study_Hours_Per_Day",
+      "Attendance_Rate",
+      "Stress_Level",
+      "Age"
+    ],
+    "RMSE": 5.18202026750679,
+    "MAE": 3.9083098888101677,
+    "R2": 0.7601618009938328,
+    "train_sec": 0.951,
+    "latency_ms": 1.557
+  }
+]

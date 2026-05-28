@@ -1,0 +1,23 @@
+{
+  "version": "v1",
+  "features": [
+    "Age",
+    "Study_Hours_Per_Day",
+    "Sleep_Hours_Per_Day",
+    "Attendance_Rate",
+    "Stress_Level",
+    "Gender",
+    "Major",
+    "Living_Area",
+    "Parent_Education",
+    "Scholarship_Status",
+    "Part_Time_Job",
+    "Extracurricular_Activities",
+    "Internet_Access",
+    "Exam_Proximity"
+  ],
+  "n_features": 14,
+  "n_train": 800,
+  "n_test": 200,
+  "train_hash": "36245344fa7a"
+}
