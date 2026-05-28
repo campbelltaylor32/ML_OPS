@@ -155,10 +155,12 @@ pip install -r requirements.txt
 # Optional: install H2O for the H2O AutoML benchmark (requires Java 8+)
 # pip install h2o
 
-# Optional: set Evidently Cloud credentials to enable cloud upload
-# export EVIDENTLY_API_TOKEN=your_token
-# export EVIDENTLY_PROJECT_ID=your_project_id
+# Evidently Cloud credentials (optional — local HTML report always works without them)
+cp .env.example .env          # then open .env and fill in your token + project ID
 ```
+
+`.env` is gitignored — never commit it. `src/config.py` loads it automatically via
+`python-dotenv`, so no `export` commands are needed.
 
 ## 7. Run the whole pipeline (one command)
 ```bash
@@ -202,12 +204,15 @@ uvicorn app.inference_api:app --port 8000            # http://localhost:8000/doc
 - `models/best_model.pkl` is the serving artifact — apps load this directly.
 
 ## 10. Evidently Cloud setup (optional)
-```bash
-export EVIDENTLY_API_TOKEN=<your token from app.evidently.cloud>
-export EVIDENTLY_PROJECT_ID=<your project UUID>   # optional; first project used if omitted
-python -m src.monitoring_evidently                # uploads DataDrift + DataSummary report
-```
-Without the token, the script writes `reports/monitoring/evidently_report.html` locally.
+
+1. Copy the template: `cp .env.example .env`
+2. Edit `.env` and set:
+   - `EVIDENTLY_API_TOKEN` — from **app.evidently.cloud → Settings → API Keys**
+   - `EVIDENTLY_PROJECT_ID` — project UUID (optional; first workspace project used if blank)
+3. Run: `python -m src.monitoring_evidently`
+
+`src/config.py` loads `.env` automatically via `python-dotenv` — no `export` needed.
+Without a token, the script writes `reports/monitoring/evidently_report.html` locally and skips the upload.
 
 ---
 

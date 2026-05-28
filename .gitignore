@@ -20,6 +20,9 @@ reports/monitoring/*
 reports/*.json
 reports/*.csv
 
+# Secrets — never commit
+.env
+
 # OS
 .DS_Store
 

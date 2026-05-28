@@ -234,6 +234,36 @@ Prefer capturing all values inside the `with` block or before the shutdown line.
 
 ---
 
+## Error 8 — Evidently Cloud token stored in shell env / settings files instead of `.env`
+
+**Symptom:** Token had to be exported manually each session or stored in `.claude/settings.local.json`,
+which is not portable across machines and not visible to the Python process.
+
+**Root cause:**
+`src/config.py` read `EVIDENTLY_API_TOKEN` only from `os.environ`, so the token had to
+be injected via `export` or a Claude Code env block. Neither approach is reproducible for
+teammates or CI.
+
+**Fix:**
+1. Add `python-dotenv>=1.0` to `requirements.txt`.
+2. Create `.env.example` (committed) with placeholder values and instructions.
+3. Each developer copies `.env.example` → `.env` (gitignored) and fills in their token.
+4. In `src/config.py`, call `load_dotenv(ROOT / ".env")` before the `os.environ.get` calls:
+   ```python
+   from dotenv import load_dotenv as _load_dotenv
+   _load_dotenv(ROOT / ".env")
+   EVIDENTLY_API_TOKEN: str = _os.environ.get("EVIDENTLY_API_TOKEN", "")
+   ```
+   `load_dotenv` is a no-op when `.env` is absent, so CI (which injects vars via the runner)
+   works unchanged.
+
+**Prevention rule:**
+Any secret that a script reads from `os.environ` should have a corresponding `.env.example`
+entry and a `load_dotenv()` call at the config layer. Never store real tokens in committed
+files or Claude Code settings — use `.env` (gitignored) as the canonical local secret store.
+
+---
+
 ## General rules derived from this session
 
 1. **Verify all third-party API signatures before writing code** — one

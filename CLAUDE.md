@@ -67,7 +67,7 @@ and registers it. `app/` feeds raw rows — preprocessing is baked into the pipe
 - **MLflow tracking URI must be SQLite** (`sqlite:///mlflow.db`) — required for the Model Registry locally.
 - **`models/best_model.pkl` is the serving artifact** — apps load this directly; do not depend on MLflow being live.
 - **`data/processed/`, `data/staging/`, `data/intermediate/`, `data/marts/`, `data/feature_store/`, `reports/` are all generated** — do not commit them. Run `bash run_all.sh` to regenerate.
-- **Evidently Cloud is optional** — set `EVIDENTLY_API_TOKEN` + `EVIDENTLY_PROJECT_ID` env vars to enable. Local HTML always written.
+- **Evidently Cloud credentials live in `.env`** — copy `.env.example` → `.env` and fill in `EVIDENTLY_API_TOKEN` + `EVIDENTLY_PROJECT_ID`. `src/config.py` auto-loads it via `python-dotenv`. `.env` is gitignored; never commit it. Local HTML is always written regardless of token.
 - **H2O is optional** — requires JVM 8+. Install with `pip install h2o`. The benchmark skips cleanly without it.
 
 ## Anti-patterns and rules (from lessons_learned.md)
