@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Performance Risk — All Services</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 780px; margin: 48px auto; padding: 0 24px; color: #1a1a1a; }
+  h1   { font-size: 1.5rem; margin-bottom: 4px; }
+  .sub { color: #555; margin-top: 0; margin-bottom: 36px; font-size: 0.95rem; }
+  h2   { font-size: 1rem; text-transform: uppercase; letter-spacing: .06em; color: #555; margin: 32px 0 12px; border-bottom: 1px solid #e0e0e0; padding-bottom: 6px; }
+  ul   { list-style: none; padding: 0; margin: 0; }
+  li   { margin: 10px 0; display: flex; align-items: baseline; gap: 12px; }
+  .label { min-width: 260px; font-weight: 500; }
+  a    { color: #0066cc; text-decoration: none; font-family: monospace; font-size: 0.92rem; }
+  a:hover { text-decoration: underline; }
+  .badge { font-size: 0.75rem; background: #e8f4e8; color: #2a6e2a; border-radius: 3px; padding: 1px 6px; margin-left: 6px; }
+  .static { font-family: monospace; font-size: 0.88rem; color: #333; }
+  footer { margin-top: 48px; font-size: 0.82rem; color: #888; }
+</style>
+</head>
+<body>
+
+<h1>Student Performance Risk Monitoring System</h1>
+<p class="sub">All services served by this project — open links after running <code>bash serve_demo.sh</code></p>
+
+<h2>Live Apps</h2>
+<ul>
+  <li>
+    <span class="label">Streamlit Dashboard</span>
+    <a href="http://localhost:8501" target="_blank">http://localhost:8501</a>
+    <span class="badge">Predict + Monitoring</span>
+  </li>
+  <li>
+    <span class="label">FastAPI Inference API (Swagger UI)</span>
+    <a href="http://localhost:8000/docs" target="_blank">http://localhost:8000/docs</a>
+  </li>
+  <li>
+    <span class="label">FastAPI Health Probe</span>
+    <a href="http://localhost:8000/health" target="_blank">http://localhost:8000/health</a>
+  </li>
+  <li>
+    <span class="label">MLflow UI (Experiments + Registry)</span>
+    <a href="http://localhost:5000" target="_blank">http://localhost:5000</a>
+  </li>
+</ul>
+
+<h2>Static Reports</h2>
+<ul>
+  <li>
+    <span class="label">Evidently Drift Report</span>
+    <a href="../reports/monitoring/evidently_report.html" target="_blank" class="static">reports/monitoring/evidently_report.html</a>
+  </li>
+  <li>
+    <span class="label">AutoML Accuracy-vs-Latency</span>
+    <a href="../reports/automl/accuracy_vs_latency.png" target="_blank" class="static">reports/automl/accuracy_vs_latency.png</a>
+  </li>
+  <li>
+    <span class="label">Lineage DAG</span>
+    <a href="../reports/lineage/lineage_dag.png" target="_blank" class="static">reports/lineage/lineage_dag.png</a>
+  </li>
+  <li>
+    <span class="label">Target Distribution (EDA)</span>
+    <a href="../reports/figures/01_target_distribution.png" target="_blank" class="static">reports/figures/01_target_distribution.png</a>
+  </li>
+  <li>
+    <span class="label">Feature Correlation (EDA)</span>
+    <a href="../reports/figures/02_feature_correlation.png" target="_blank" class="static">reports/figures/02_feature_correlation.png</a>
+  </li>
+  <li>
+    <span class="label">Study vs Score (EDA)</span>
+    <a href="../reports/figures/03_study_vs_score.png" target="_blank" class="static">reports/figures/03_study_vs_score.png</a>
+  </li>
+  <li>
+    <span class="label">Prediction Shift (monitoring)</span>
+    <a href="../reports/figures/08_prediction_shift.png" target="_blank" class="static">reports/figures/08_prediction_shift.png</a>
+  </li>
+  <li>
+    <span class="label">All EDA Figures</span>
+    <a href="../reports/figures/" target="_blank" class="static">reports/figures/</a>
+  </li>
+  <li>
+    <span class="label">AutoML Benchmark (JSON)</span>
+    <a href="../reports/automl/benchmark.json" target="_blank" class="static">reports/automl/benchmark.json</a>
+  </li>
+  <li>
+    <span class="label">Metrics Comparison (JSON)</span>
+    <a href="../reports/metrics_comparison.json" target="_blank" class="static">reports/metrics_comparison.json</a>
+  </li>
+</ul>
+
+<h2>How to Launch</h2>
+<ul>
+  <li><span class="label">Start all services + print URLs</span><code>bash serve_demo.sh</code></li>
+  <li><span class="label">Reproduce full pipeline</span><code>bash run_all.sh</code></li>
+  <li><span class="label">Reproduce CI pipeline (reduced)</span><code>bash scripts/ci_pipeline.sh</code></li>
+  <li><span class="label">Run guard tests</span><code>python -m pytest -q</code></li>
+</ul>
+
+<footer>Student Performance Risk Monitoring System · MLOps Course 2026</footer>
+</body>
+</html>
