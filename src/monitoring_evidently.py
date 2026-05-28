@@ -21,18 +21,17 @@ def _build_report(reference: pd.DataFrame, current: pd.DataFrame):
     """
     Build and run an Evidently report using the legacy Evidently 0.6.7 API.
     """
-    from evidently.report import Report
-    from evidently.metric_preset import DataDriftPreset, DataQualityPreset
+    from evidently import Report
+    from evidently.presets import DataDriftPreset, DataSummaryPreset
 
     report = Report(
         metrics=[
             DataDriftPreset(),
-            DataQualityPreset(),
+            DataSummaryPreset(),
         ]
     )
 
-    report.run(reference_data=reference, current_data=current)
-    return report
+    return report.run(reference_data=reference, current_data=current)
 
 
 def _save_local(snapshot, out: Path) -> Path:
