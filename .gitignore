@@ -23,6 +23,12 @@ reports/monitoring/*
 reports/*.json
 reports/*.csv
 
+# Claude / project meta (local tooling, not for version control)
+CLAUDE.md
+TASKS.md
+lessons_learned.md
+IMPLEMENTATION_PLAN.md
+
 # Secrets — never commit
 .env
 
