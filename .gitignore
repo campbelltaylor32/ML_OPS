@@ -19,7 +19,6 @@ data/staging/
 data/intermediate/
 data/marts/
 data/feature_store/
-reports/figures/*.png
 reports/monitoring/*
 reports/*.json
 reports/*.csv
