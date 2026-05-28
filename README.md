@@ -148,9 +148,15 @@ student-performance-mlops/
 ---
 
 ## 6. Local setup
+
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+
+# Exact reproduction (recommended) — installs every transitive dep at a pinned version
+pip install -r requirements.lock
+
+# Direct deps only — resolves transitive deps fresh (may pull newer sub-deps)
+# pip install -r requirements.txt
 
 # Optional: install H2O for the H2O AutoML benchmark (requires Java 8+)
 # pip install h2o
@@ -161,6 +167,19 @@ cp .env.example .env          # then open .env and fill in your token + project 
 
 `.env` is gitignored — never commit it. `src/config.py` loads it automatically via
 `python-dotenv`, so no `export` commands are needed.
+
+### Dependency files
+| File | Purpose |
+|---|---|
+| `requirements.txt` | Pinned direct dependencies — edit this when upgrading a package |
+| `requirements.lock` | Full `pip freeze` snapshot — guarantees byte-for-byte reproducible installs |
+
+To upgrade a package: bump its version in `requirements.txt`, install, run the full test suite, then regenerate the lock file:
+```bash
+pip install -r requirements.txt
+bash run_all.sh
+pip freeze > requirements.lock
+```
 
 ## 7. Run the whole pipeline (one command)
 ```bash
