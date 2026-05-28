@@ -25,3 +25,5 @@ reports/*.csv
 
 # NOTE: data/raw/student_performance.csv IS committed (the input dataset).
 !data/raw/student_performance.csv
+.cursor/rules/codegraph.mdc
+.codegraph/.gitignore
