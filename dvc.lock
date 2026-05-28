@@ -1,0 +1,95 @@
+schema: '2.0'
+stages:
+  lineage:
+    cmd: python -m src.lineage.run_lineage
+    deps:
+    - path: data/raw/student_performance.csv
+      hash: md5
+      md5: 4a0ff1e630a0b2f942d559911dcb1aca
+      size: 100291
+    - path: src/lineage/contracts.py
+      hash: md5
+      md5: dba599d52b900d6c3c29172f13523351
+      size: 2775
+    - path: src/lineage/run_lineage.py
+      hash: md5
+      md5: d4283d1217f8614130147e682a34e70b
+      size: 985
+    outs:
+    - path: data/intermediate
+      hash: md5
+      md5: a702be5b8840a3ebdaa7741684587be6.dir
+      size: 38278
+      nfiles: 1
+    - path: data/marts
+      hash: md5
+      md5: 4869d75f1463230762304c0fb4a75cbf.dir
+      size: 51520
+      nfiles: 2
+    - path: data/staging
+      hash: md5
+      md5: b3247437e1a343b17aaa8e6d23e1d826.dir
+      size: 37244
+      nfiles: 1
+  feature_store:
+    cmd: python -m src.feature_store
+    deps:
+    - path: data/marts
+      hash: md5
+      md5: 4869d75f1463230762304c0fb4a75cbf.dir
+      size: 51520
+      nfiles: 2
+    - path: src/feature_store.py
+      hash: md5
+      md5: fc0d5833424e9da4502fcf1ff5d22d39
+      size: 4667
+    outs:
+    - path: data/feature_store
+      hash: md5
+      md5: b7afb401a6692374323bd849c1248a7c.dir
+      size: 84239
+      nfiles: 6
+  automl_benchmark:
+    cmd: python -m src.automl_benchmark --flaml-budget 60
+    deps:
+    - path: data/feature_store
+      hash: md5
+      md5: b7afb401a6692374323bd849c1248a7c.dir
+      size: 84239
+      nfiles: 6
+    - path: src/automl_benchmark.py
+      hash: md5
+      md5: 812e87598e956805db583a2f31d8c64b
+      size: 12115
+    - path: src/mlflow_utils.py
+      hash: md5
+      md5: bd9a4f1ae7d6ebab08f1f0d891c13ada
+      size: 3263
+    params:
+      params.yaml:
+        automl.flaml_budget: 60
+    outs:
+    - path: models/best_model.pkl
+      hash: md5
+      md5: b22b23f9c9157408af64e376e7382fc3
+      size: 391858
+    - path: models/model_metadata.json
+      hash: md5
+      md5: 08313c1d3b6a8ef55297adfa6c9176a8
+      size: 634
+  monitoring_evidently:
+    cmd: python -m src.monitoring_evidently
+    deps:
+    - path: data/marts
+      hash: md5
+      md5: 4869d75f1463230762304c0fb4a75cbf.dir
+      size: 51520
+      nfiles: 2
+    - path: models/best_model.pkl
+      hash: md5
+      md5: b22b23f9c9157408af64e376e7382fc3
+      size: 391858
+    - path: src/monitoring_evidently.py
+      hash: md5
+      md5: 3eafb0604ed03837eb9f4fe183d8b929
+      size: 3773
