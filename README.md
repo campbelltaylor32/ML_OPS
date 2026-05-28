@@ -12,6 +12,17 @@ The system demonstrates the **full MLOps lifecycle** across four pillars:
 
 ---
 
+## Team & Responsibilities
+
+| Member | Contributions |
+|---|---|
+| **Andrew Castillo** | Raw data acquisition & profiling; EDA (`src/eda.py`, `reports/figures/`); data lineage pipeline (`src/lineage/`); train/test split (`src/preprocessing.py`) |
+| **Campbell Taylor** | Feature engineering (`src/feature_store.py` — v1/v2 feature sets, derived features `study_sleep_ratio`, `effective_attendance`); experiment tracking grid (`src/experiment.py`); MLflow utilities (`src/mlflow_utils.py`) |
+| **Cicily Matthew** | AutoML benchmarking (`src/automl_benchmark.py` — FLAML, H2O, baseline, top-5 regimes); model evaluation (`src/evaluate.py`); model selection & MLflow model registry |
+| **Sagana Ondande** | MLOps architecture design; data versioning (DVC — `dvc.yaml`, `params.yaml`, `dvc.lock`); CI/CD (GitHub Actions `ci.yml`, `scripts/ci_pipeline.sh`, `scripts/smoke_apps.sh`); Docker Compose deployment (`docker-compose.yml`); FastAPI inference API (`app/inference_api.py`); Streamlit monitoring dashboard (`app/dashboard.py`); drift monitoring (`src/monitoring.py`, `src/monitoring_evidently.py`); demo infrastructure (`serve_demo.sh`, `app/serve_index.html`); documentation (README, CLAUDE.md) |
+
+---
+
 ## Live Services & URLs
 
 Run `bash serve_demo.sh` to start all apps and print every URL. Or open
@@ -32,61 +43,81 @@ Run `bash serve_demo.sh` to start all apps and print every URL. Or open
 
 ## End-to-End Run & Demo Guide
 
-Follow these steps in order for the recorded demo. Everything runs locally — no cloud account needed.
+The **canonical demo path uses Docker** — it guarantees a clean, reproducible environment identical to what reviewers will see. The local `bash run_all.sh` path is a development fallback.
+
+Requires Docker ≥ 24 + Docker Compose v2.
 
 ### Step 1 — Setup (once)
 
 ```bash
-uv sync                       # creates .venv and installs all deps from uv.lock
-cp .env.example .env          # fill in EVIDENTLY_API_TOKEN if you have one (optional)
+cp .env.example .env          # fill in EVIDENTLY_API_TOKEN + EVIDENTLY_PROJECT_ID (enables Cloud upload)
 ```
 
-### Step 2 — Run the full pipeline
+No `uv sync` needed for Docker — the container builds its own environment. Only needed if running locally.
+
+### Step 2 — Build all pipeline artifacts (Docker)
 
 ```bash
-bash run_all.sh
+docker compose run --rm pipeline
 ```
 
-This runs all 11 steps in order: EDA → lineage → preprocessing → feature store →
-experiment grid → AutoML benchmark → evaluate → build modified test set → batch
-inference → PSI monitoring → Evidently drift report.
+Runs all 11 steps inside the container: EDA → lineage → preprocessing → feature store →
+experiment grid → AutoML benchmark → evaluate → modified test set → batch inference →
+PSI monitoring → Evidently drift report.
 
-Expected output: `Done.` with the three serving commands printed at the end.
-Artifacts generated: `models/best_model.pkl`, `reports/`, `data/marts/`,
-`data/feature_store/`, `data/processed/`.
+Artifacts are written directly to the host via bind-mount:
+`models/best_model.pkl`, `reports/`, `data/marts/`, `data/feature_store/`, `data/processed/`, `mlflow.db`.
 
-### Step 3 — Verify everything passes
+If `EVIDENTLY_API_TOKEN` is set in `.env`, the Evidently drift report is uploaded to
+**app.evidently.cloud** automatically at step 11.
+
+### Step 3 — Verify guard tests pass
 
 ```bash
 uv run python -m pytest -q
 ```
 
-All 17 guard tests (G1–G4) should pass. If any fail, re-run `bash run_all.sh` first.
+All 17 guard tests (G1–G4) must pass. These run against the artifacts written to host in Step 2.
 
-### Step 4 — Launch all services
+### Step 4 — Launch all services (Docker)
 
 ```bash
-bash serve_demo.sh
+docker compose up
 ```
 
-Starts MLflow UI, FastAPI, and Streamlit together and prints every URL. Press
-**Ctrl-C** to stop all three at once. Keep this terminal open for the recording.
+Starts MLflow UI (5001), FastAPI inference API (8000), and Streamlit dashboard (8501) together.
+Keep this terminal open for the demo recording. Press **Ctrl-C** to stop all three.
 
 ### Step 5 — Demo walkthrough (record in this order)
 
-| # | What to show | Where |
-|---|---|---|
-| 1 | **EDA** — target distribution, feature correlations | `reports/figures/` (open PNGs) |
-| 2 | **Pipeline + AutoML results** — experiment runs, registered model | http://localhost:5001 → Experiments → student_performance_model |
-| 3 | **Live inference (original data)** — predict a student, see score + risk flag | http://localhost:8501 → Predict tab |
-| 4 | **Monitoring — original test set** — RMSE, R², mean predicted score | http://localhost:8501 → Monitoring tab (top metrics) |
-| 5 | **Changed test set results** — same tab shows modified set metrics side-by-side, PSI drift table | http://localhost:8501 → Monitoring tab (scroll down) |
-| 6 | **Evidently drift report** — DataDrift + DataSummary HTML | `reports/monitoring/evidently_report.html` (open in browser) |
-| 7 | **REST API** — hit `/predict` live via Swagger | http://localhost:8000/docs → POST /predict → Try it out |
-| 8 | **All URLs at a glance** | `app/serve_index.html` (open in browser) |
+Covers all 10 project rubric criteria.
+
+| # | Rubric criteria | What to show | Where |
+|---|---|---|---|
+| 1 | Dataset + outcome variable | **EDA** — 1 000 student records, target distribution (`Average_Score`), feature correlations | `reports/figures/` → open PNGs |
+| 2 | Train/test split | **Lineage DAG** — raw → staging → intermediate → marts; fixed-seed 80/20 split | `reports/lineage/lineage_dag.png` |
+| 3 | Metrics defined | **AutoML benchmark** — RMSE, MAE, R², inference latency per regime | http://localhost:5001 → Experiments → `student_performance_risk` |
+| 4 | AutoML pipeline | **Registered model** — FLAML best pipeline, version history, DVC data hash param | http://localhost:5001 → Models → `student_performance_model` |
+| 5 | Model deployed | **REST API** — hit `/predict` live via Swagger; show `/health` response | http://localhost:8000/docs → POST /predict → Try it out |
+| 6 | Monitoring + dashboard | **Streamlit Monitoring tab** — original test set RMSE, R², mean predicted score | http://localhost:8501 → Monitoring tab |
+| 7 | Original test validated | **Streamlit Predict tab** — predict a real student from original data, see score + at-risk flag | http://localhost:8501 → Predict tab |
+| 8 | Modified test set | **Monitoring tab (scroll down)** — modified set metrics side-by-side with original | http://localhost:8501 → Monitoring tab |
+| 9 | Drift verified | **PSI table + Evidently report** — prediction PSI ~3.97 (major drift), DataDrift feature breakdown | `reports/monitoring/evidently_report.html` (open in browser) or Evidently Cloud |
+| 10 | Presentation | **Landing page** — all URLs, team table, pipeline diagram at a glance | `app/serve_index.html` (open in browser) |
 
 > **Tip:** open `app/serve_index.html` first and use it as your navigation hub
 > throughout the recording — every link is one click from there.
+
+---
+
+### Local fallback (no Docker)
+
+```bash
+uv sync
+bash run_all.sh               # runs all 11 steps
+uv run python -m pytest -q    # guard tests
+bash serve_demo.sh            # starts MLflow + FastAPI + Streamlit
+```
 
 ---
 
@@ -279,35 +310,38 @@ uv run python -m src.monitoring_evidently
 uv run python -m pytest -q
 ```
 
-## 8. Deploy & monitor
-```bash
-uv run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5001   # http://localhost:5001
-uv run streamlit run app/dashboard.py                                   # http://localhost:8501
-uv run uvicorn app.inference_api:app --port 8000                        # http://localhost:8000/docs
-```
-
-## 8b. Docker deployment (recommended for reproducible demos)
+## 8. Deploy & serve (Docker — primary)
 
 Requires Docker ≥ 24 + Docker Compose v2.
 
 ```bash
-# First run — build pipeline artifacts inside the container (bind-mount writes to host)
+# Build all pipeline artifacts (run once; bind-mount writes artifacts to host)
 docker compose run --rm pipeline
 
 # Start all three serving services
 docker compose up
 
-# Individual service
+# Individual services
 docker compose up api          # FastAPI only (http://localhost:8000/docs)
 docker compose up mlflow       # MLflow UI only (http://localhost:5001)
 docker compose up dashboard    # Streamlit only (http://localhost:8501)
 ```
 
-The `pipeline` service (profile: `pipeline`) is excluded from `docker compose up` so it never auto-starts. Run it once to generate `models/best_model.pkl` and all report artifacts before launching the serving stack.
+The `pipeline` service (profile: `pipeline`) is excluded from `docker compose up` so it never auto-starts. Run it once before launching the serving stack.
 
 Health endpoint verified by the compose healthcheck:
 ```
 GET http://localhost:8000/health → {"status":"ok","model":"xgboost",...}
+```
+
+## 8b. Local serving (fallback)
+
+```bash
+uv run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5001   # http://localhost:5001
+uv run streamlit run app/dashboard.py                                   # http://localhost:8501
+uv run uvicorn app.inference_api:app --port 8000                        # http://localhost:8000/docs
+# or all three at once:
+bash serve_demo.sh
 ```
 
 ## 9. MLflow tracking setup

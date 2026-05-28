@@ -6,11 +6,11 @@
 mlflow.db
 mlruns/
 
-# Evidently HTML/JSON reports — generated artifacts, not source data
-reports/monitoring/
+# EDA figures — many PNGs, not model artifacts
 reports/figures/
-reports/*.json
-reports/*.csv
+
+# Lineage diagram
+reports/lineage/
 
 # Python caches
 __pycache__/

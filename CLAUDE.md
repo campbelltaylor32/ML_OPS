@@ -14,6 +14,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Never spawn an Explore agent or run a grep/Read loop when 1–2 codegraph calls answer the question. Raw `Read`/`grep` is reserved for: literal string content, comments, log messages, or a specific line after codegraph surfaced the file.
 
+**Hard rules — violations recorded:**
+- `codegraph_context` is the **sole first call** on every prompt. Never call `codegraph_files` or any other codegraph tool in parallel with it for initial orientation — `codegraph_context` already composes search + node + callers + callees.
+- Never pre-announce "then I'll check the config / Docker files with Read" before seeing codegraph results. Wait for codegraph output; only reach for `Read`/`grep` if codegraph explicitly didn't cover that file.
+- codegraph tools are deferred — `ToolSearch` must load them first. Do NOT delay orientation: load and call `codegraph_context` in the same turn, not across two turns.
+
 ## Commands
 
 ```bash
