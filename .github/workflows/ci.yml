@@ -31,8 +31,11 @@ jobs:
       - name: Run reduced pipeline
         run: bash scripts/ci_pipeline.sh
 
-      - name: Run guard tests (G1-G4 + smoke)
-        run: uv run python -m pytest -q
+      - name: Build Docker image
+        run: docker build -t ml-ops-pipeline:ci .
+
+      - name: Run guard tests inside Docker (G1-G4 + smoke)
+        run: docker run --rm ml-ops-pipeline:ci python -m pytest -q
 
       - name: Smoke-test deployable apps
         run: bash scripts/smoke_apps.sh

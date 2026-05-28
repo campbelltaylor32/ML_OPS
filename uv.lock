@@ -1455,18 +1455,6 @@ wheels = [
 ]
 
 [[package]]
-name = "h2o"
-version = "3.46.0.11"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "requests" },
-    { name = "tabulate" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/91/71/0b11af978aab4c42b0bd65b2fd3341eb548a59b1593e25af2f682955cf43/h2o-3.46.0.11-py2.py3-none-any.whl", hash = "sha256:4c266bbe961a69126a2ec143041a493f8a02ffdea64023907ecd6025a498457c", size = 266383816, upload-time = "2026-05-22T12:17:13.428Z" },
-]
-
-[[package]]
 name = "httpcore"
 version = "1.0.9"
 source = { registry = "https://pypi.org/simple" }
@@ -3937,11 +3925,6 @@ dependencies = [
     { name = "xgboost" },
 ]
 
-[package.optional-dependencies]
-h2o = [
-    { name = "h2o" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "codecarbon", specifier = "==3.2.7" },
@@ -3949,7 +3932,6 @@ requires-dist = [
     { name = "evidently", specifier = "==0.7.21" },
     { name = "fastapi", specifier = "==0.136.3" },
     { name = "flaml", extras = ["automl"], specifier = "==2.6.0" },
-    { name = "h2o", marker = "extra == 'h2o'", specifier = "==3.46.0.11" },
     { name = "joblib", specifier = "==1.5.3" },
     { name = "lightgbm", specifier = "==4.6.0" },
     { name = "matplotlib", specifier = "==3.10.9" },
@@ -3965,7 +3947,6 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], specifier = "==0.48.0" },
     { name = "xgboost", specifier = "==2.1.4" },
 ]
-provides-extras = ["h2o"]
 
 [[package]]
 name = "tabulate"

@@ -18,6 +18,7 @@ services:
     <<: *base
     command: bash run_all.sh
     profiles: [pipeline]   # excluded from `docker compose up`
+    mem_limit: 6g          # H2O JVM needs headroom beyond the 2G heap
 
   # ── Serving stack (start all three with: docker compose up) ─────────────────
   mlflow:

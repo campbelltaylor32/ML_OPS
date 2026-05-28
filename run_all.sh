@@ -8,7 +8,7 @@ echo "[2/11] Data Lineage (Raw→Mart) .........."; uv run python -m src.lineage
 echo "[3/11] Preprocess + split (CSV compat) .."; uv run python -m src.preprocessing
 echo "[4/11] Feature Store (v1 + v2) .........."; uv run python -m src.feature_store
 echo "[5/11] Experiment grid (feat × hparams) ."; uv run python -m src.experiment
-echo "[6/11] AutoML Benchmark (FLAML+H2O) ....."; uv run python -m src.automl_benchmark --flaml-budget 60
+echo "[6/11] AutoML Benchmark (FLAML) .........."; uv run python -m src.automl_benchmark --flaml-budget 60
 echo "[7/11] Evaluate (original test) ........."; uv run python -m src.evaluate
 echo "[8/11] Make modified test set ..........."; uv run python -m src.make_modified_test
 echo "[9/11] Batch inference + compare ........"; uv run python -m src.batch_inference

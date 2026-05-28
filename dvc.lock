@@ -59,8 +59,8 @@ stages:
       nfiles: 6
     - path: src/automl_benchmark.py
       hash: md5
-      md5: 812e87598e956805db583a2f31d8c64b
-      size: 12115
+      md5: ffd6a8838ca0ebb2e4388d9421e31706
+      size: 14520
     - path: src/mlflow_utils.py
       hash: md5
       md5: bd9a4f1ae7d6ebab08f1f0d891c13ada
@@ -75,12 +75,12 @@ stages:
       size: 391858
     - path: models/model_metadata.json
       hash: md5
-      md5: c7c6df9bf1fcf0768e90eb9e172c3250
-      size: 634
+      md5: b8d8b18e8a605b73ec7da35d73f3ff8c
+      size: 1873
     - path: reports/automl
       hash: md5
-      md5: 7ae35503a3b4f8bff069bf43d1eb73e5.dir
-      size: 18908
+      md5: bd38f4adba0e222bcc9898baffeaa9f9.dir
+      size: 20193
       nfiles: 2
   monitoring_evidently:
     cmd: uv run python -m src.monitoring_evidently
