@@ -27,3 +27,4 @@ reports/*.csv
 !data/raw/student_performance.csv
 .cursor/rules/codegraph.mdc
 .codegraph/.gitignore
+.codegraph/daemon.pid
